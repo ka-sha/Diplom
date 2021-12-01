@@ -39,14 +39,10 @@ public:
 		while (buff_len >= 8)
 		{
 			res = hash(res, data);
-			//std::cout << "hash while length > 8: ";
-			//hash_print(res);
 			data += 8;
 			buff_len -= 8;
 		}
 		res = hash_appendix(res, data);
-		//std::cout << "hash length < 8: ";
-		hash_print(res);
 		return res;
 	}
 
@@ -75,8 +71,6 @@ private:
 		{
 			res[i] = a[i] ^ b[i];
 		}
-		//std::cout << "anoter X = ";
-		//hash_print(res);
 		return res;
 	}
 
@@ -171,17 +165,7 @@ private:
 		{
 			res = L(P(S(res)));
 			Ki = get_key(Ki, i);
-			/*if (i == 7)
-			{
-				std::cout << "7th Ki: ";
-				hash_print(Ki);
-			}*/
-
 			res = X(Ki, res);
-			/*if (i == 6) {
-				std::cout << "6th Ki: ";
-				hash_print(res);
-			}*/
 		}
 		return res;
 	}
@@ -219,17 +203,11 @@ private:
 	uint8_t* hash_appendix(const uint8_t* h, const uint8_t* m)
 	{
 		uint8_t* tmp_m = padding(m);
-		//std::cout << "start hash_appendix 1st gn" << std::endl;
 		uint8_t* res = gN(h, tmp_m, N);
-		//std::cout << "finish hash_appendix 1st gn" << std::endl;
 		add64(N, int_to_arr(buff_len));
 		add64(sigma, tmp_m);
-		//std::cout << "start hash_appendix 2nd gn" << std::endl;
 		res = gN(res, N, v_0);
-		//std::cout << "finish hash_appendix 2nd gn" << std::endl;
-		//std::cout << "start hash_appendix 3nd gn" << std::endl;
 		res = gN(res, sigma, v_0);
-		//std::cout << "finish hash_appendix 3nd gn" << std::endl;
 		return res;
 	}
 };
@@ -266,213 +244,3 @@ int main()
 	ctx.hash_print(ctx.calculate_hash(buffer));
 	return 0;
 }
-
-/*static void X(const uint8_t* a, const uint8_t* b, uint8_t* c)
-{
-	int i;
-	for (i = 0; i < BLOCK_SIZE; i++)
-	{
-		c[i] = a[i] ^ b[i];
-	}
-}
-
-static void add64(const uint8_t* a, const uint8_t* b, uint8_t* c)
-{
-	int i;
-	int internal = 0;
-	//my opinion
-	//for (i = BLOCK_SIZE - 1; i >= 0; i--)
-	//author:
-	for (i = 0; i < BLOCK_SIZE; i++)
-	{
-		internal = a[i] + b[i] + (internal >> 8);
-		c[i] = internal & 0xff;
-	}
-}
-
-static void S(uint8_t* state)
-{
-	int i;
-	vect internal;
-	for (i = BLOCK_SIZE - 1; i >= 0; i--)
-	{
-		uint8_t left_state = state[i] >> 4;
-		uint8_t right_state = state[i] ^ 0xf;
-		internal[i] = (PI[left_state] << 4) ^ PI[right_state];
-	}
-	memcpy(state, internal, BLOCK_SIZE);
-}
-
-static void P(uint8_t* state)
-{
-	int i;
-	vect internal;
-	for (i = 2 * BLOCK_SIZE - 1; i >= 0; i--)
-	{
-		uint8_t index = TAU[i];
-		uint8_t state_index = index / 2;
-		uint8_t state_value = (index % 2) ? state[state_index] ^ 0xf : state[state_index] >> 4;
-		internal[i / 2] ^= (i % 2) ? state_value : (state_value << 4);
-		/*if (index % 2 == 0)
-		{
-			state_value = state_value >> 4;
-		}
-		else
-		{
-			state_value = state_value ^ 0xf;
-		}
-		internal[i] = state[TAU[i]];
-	}
-	memcpy(state, internal, BLOCK_SIZE);
-}
-
-static void L(uint8_t* state)
-{
-	uint16_t* internal_in = (uint16_t*)state;
-	uint16_t internal_out[4];
-	memset(internal_out, 0x00, BLOCK_SIZE);
-	int i, j;
-
-	for (i = 3; i >= 0; i--)
-	{
-		for (j = 15; j >= 0; j--)
-		{
-			if ((internal_in[i] >> j) & 1)
-			{
-				internal_out[i] ^= A[15 - j];
-			}
-		}
-	}
-	memcpy(state, internal_out, BLOCK_SIZE);
-}
-
-static void getKey(uint8_t* K, int i)
-{
-	X(K, C[i], K);
-	S(K);
-	P(K);
-	L(K);
-}
-
-static void E(uint8_t* K, const uint8_t* m, uint8_t* state)
-{
-	int i;
-	memcpy(K, K, BLOCK_SIZE);
-	X(m, K, state);
-	for (i = 0; i < 8; i++)
-	{
-		S(state);
-		P(state);
-		L(state);
-		getKey(K, i);
-		X(state, K, state);
-	}
-}
-
-static void gN(uint8_t* h, uint8_t* N, const uint8_t* m)
-{
-	vect K, internal;
-	X(N, h, K);
-
-	S(K);
-	P(K);
-	L(K);
-
-	E(K, m, internal);
-
-	X(internal, h, internal);
-	X(internal, m, h);
-}
-
-static void padding(Context* ctx)
-{
-	vect internal;
-	if (ctx->buf_size < BLOCK_SIZE)
-	{
-		memset(internal, 0x00, BLOCK_SIZE);
-		memcpy(internal, ctx->buff, ctx->buf_size);
-		internal[ctx->buf_size] = 0x01;
-		memcpy(ctx->buff, internal, BLOCK_SIZE);
-	}
-}
-
-static void hash(Context* ctx, const uint8_t* data)
-{
-	gN(ctx->h, ctx->N, data);
-	add64(ctx->N, ctx->v_64, ctx->N);
-	add64(ctx->sigma, data, ctx->sigma);
-}
-
-static void hash_appendix(Context* ctx)
-{
-	vect internal;
-	memset(internal, 0x00, BLOCK_SIZE);
-	internal[0] = (ctx->buf_size * 8) & 0xff;
-
-	padding(ctx);
-
-	gN(ctx->h, ctx->N, (const uint8_t*)&(ctx->buff));
-
-	add64(ctx->N, internal, ctx->N);
-	add64(ctx->sigma, ctx->buff, ctx->sigma);
-
-	gN(ctx->h, ctx->v_0, (const uint8_t*)&(ctx->N));
-	gN(ctx->h, ctx->v_0, (const uint8_t*)&(ctx->sigma));
-
-	memcpy(ctx->result, ctx->h, BLOCK_SIZE);
-}
-
-void update(Context* ctx, const uint8_t* data, size_t len)
-{
-	while ((len > 63) && (ctx->buf_size) == 0)
-	{
-		hash(ctx, data);
-		data += 64;
-		len -= 64;
-	}
-
-	size_t chk_size;
-	while (len)
-	{
-		chk_size = 64 - ctx->buf_size;
-		if (chk_size > len)
-			chk_size = len;
-
-		memcpy(&ctx->buff[ctx->buf_size], data, chk_size);
-		ctx->buf_size += chk_size;
-		len -= chk_size;
-		data += chk_size;
-		if (ctx->buf_size == 64)
-		{
-			hash(ctx, ctx->buff);
-			ctx->buf_size = 0;
-		}
-	}
-}
-
-void final(Context* ctx)
-{
-	hash_appendix(ctx);
-	ctx->buf_size = 0;
-}
-
-void init(Context* ctx)
-{
-	memset(ctx, 0x00, sizeof(Context));
-	memset(ctx->h, 0x00, BLOCK_SIZE);
-	ctx->hash_size = 64;
-	ctx->v_64[0] = 0x40;
-}
-
-typedef struct Context
-{
-	vect buff;
-	vect result;
-	vect h;
-	vect N;
-	vect sigma;
-	vect v_0;
-	vect v_64;
-	size_t buf_size;
-	int hash_size;
-} Context;*/
