@@ -1,8 +1,7 @@
 ﻿#include <iostream>
-#include <vector>
 
 static const unsigned char PI[16] = { 15, 9, 1, 7, 13, 12, 2, 8, 6, 5, 14, 3, 0, 11, 4, 10 };
-static const unsigned char TAU[] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+static const unsigned char TAU[16] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
 static const uint16_t A[16] = { 0x3a22, 0x483b, 0x59e5, 0xac52,
 						0x8511, 0x248c, 0xbd7b, 0x56b1,
 						0x4b99, 0x1246, 0xcfac, 0xb3c9,
@@ -19,10 +18,10 @@ static const unsigned char C[8][8] = {
 	{0xf1, 0x43, 0xaa, 0xcc, 0x71, 0xdf, 0xbb, 0x8c}
 };
 
-class Context
+class HashFunctionMora
 {
 public:
-	Context(size_t buff_length)
+	HashFunctionMora(size_t buff_length)
 	{
 		std::fill_n(N, 8, 0);
 		std::fill_n(sigma, 8, 0);
@@ -58,8 +57,8 @@ public:
 	
 
 private:
-	uint8_t N[8];
-	uint8_t sigma[8];
+	uint8_t* N;
+	uint8_t* sigma;
 	uint8_t v_0[8];
 	uint8_t v_64[8];
 	size_t buff_len;
@@ -178,8 +177,8 @@ private:
 	uint8_t* hash(const uint8_t* h, const uint8_t* m)
 	{
 		uint8_t* res = gN(h, m, N);
-		add64(N, v_64);
-		add64(sigma, m);
+		N = add64(N, v_64);
+		sigma = add64(sigma, m);
 		return res;
 	}
 
@@ -212,7 +211,8 @@ private:
 	}
 };
 
-void convert_hex(uint8_t* dest, size_t count, const char* src) {
+void convert_hex(uint8_t* dest, size_t count, const char* src)
+{
 	char buf[3];
 	size_t i;
 	int value;
@@ -231,13 +231,12 @@ void convert_hex(uint8_t* dest, size_t count, const char* src) {
 
 int main()
 {
-
 	char str[] = "0ad444907efb8cf7";
 	size_t bytes_amount = strlen(str) / 2;
 	uint8_t* buffer = new uint8_t[bytes_amount];
 	std::fill_n(buffer, bytes_amount, 0);
 	convert_hex(buffer, bytes_amount, str);
-	Context ctx(bytes_amount);
+	HashFunctionMora ctx(bytes_amount);
 	ctx.hash_print(buffer);
 	std::cout << bytes_amount << std::endl;
 	std::cout << "\"Mora\"\n" << "String: " << str << std::endl;
