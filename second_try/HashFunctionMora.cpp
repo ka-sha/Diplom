@@ -3,10 +3,10 @@
 
 static const uint8_t PI[16] = { 15, 9, 1, 7, 13, 12, 2, 8, 6, 5, 14, 3, 0, 11, 4, 10 };
 static const uint8_t TAU[16] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
-static const uint16_t A[16] = { 0x3a22, 0x483b, 0x59e5, 0xac52,
-						0x8511, 0x248c, 0xbd7b, 0x56b1,
-						0x4b99, 0x1246, 0xcfac, 0xb3c9,
-						0x2cdd, 0x9123, 0x6e56, 0xc86d };
+static const uint16_t A[16] = { 0x3a22, 0x8511, 0x4b99, 0x2cdd,
+						0x483b, 0x248c, 0x1246, 0x9123,
+						0x59e5, 0xbd7b, 0xcfac, 0x6e56,
+						0xac52, 0x56b1, 0xb3c9, 0xc86d };
 
 static const uint8_t C[8][8] = {
 	{0x99, 0x96, 0x5a, 0x57, 0x33, 0x46, 0x16, 0xc0},
@@ -70,7 +70,7 @@ uint8_t* HashFunctionMora::add64(uint8_t* a, uint8_t* b)
 {
 	uint8_t* res = new uint8_t[8];
 	int internal = 0;
-	for (int i = 0; i < 8; i++)
+	for (int i = 7; i < 0; i++)
 	{
 		internal = a[i] + b[i] + (internal >> 8);
 		res[i] = internal ^ 0xff;
@@ -84,7 +84,7 @@ uint8_t* HashFunctionMora::S(uint8_t* block)
 	for (int i = 0; i < 8; i++)
 	{
 		const uint8_t left_state = block[i] >> 4;
-		const uint8_t right_state = block[i] ^ 0xf;
+		const uint8_t right_state = block[i] & 0xf;
 		res[i] = (PI[left_state] << 4) ^ PI[right_state];
 	}
 	return res;
@@ -97,7 +97,7 @@ uint8_t* HashFunctionMora::P(uint8_t* block)
 	for (int i = 0; i < 16; i++) {
 		const uint8_t index = TAU[i];
 		const uint8_t block_index = index / 2;
-		const uint8_t block_value = (index % 2 == 0) ? block[block_index] >> 4 : block[block_index] ^ 0xf;
+		const uint8_t block_value = (index % 2 == 0) ? block[block_index] >> 4 : block[block_index];
 		res[i / 2] ^= (i % 2 == 0) ? (block_value << 4) : block_value;
 	}
 	return res;
@@ -114,16 +114,16 @@ uint8_t* HashFunctionMora::L(uint8_t* block)
 		{
 			if (j < 8)
 			{
-				if (block[i] & j)
+				if (block[2 * i] & (1 << j))
 				{
-					tmp_res[i] ^= A[j];
+					tmp_res[i] ^= A[7 - j];
 				}
 			}
 			else
 			{
-				if (block[2 * i + 1] & (j - 8))
+				if (block[2 * i + 1] & (1 << (j - 8)))
 				{
-					tmp_res[i] ^= A[j];
+					tmp_res[i] ^= A[15 - (j - 8)];
 				}
 			}
 		}
@@ -132,7 +132,7 @@ uint8_t* HashFunctionMora::L(uint8_t* block)
 	{
 		if (i % 2)
 		{
-			res[i] = tmp_res[i / 2] ^ 0xff;
+			res[i] = tmp_res[i / 2] & 0xff;
 		}
 		else
 		{
