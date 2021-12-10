@@ -5,6 +5,7 @@ class HashFunctionMora
 public:
 	HashFunctionMora(int);
 	uint8_t* calculate_hash(uint8_t*);
+	uint8_t* gN(uint8_t*, uint8_t*, uint8_t*);
 	void print_array(uint8_t*);
 
 private:
@@ -21,7 +22,6 @@ private:
 	uint8_t* L(uint8_t*);
 	uint8_t* get_key(uint8_t*, int i);
 	uint8_t* E(uint8_t*, uint8_t*);
-	uint8_t* gN(uint8_t*, uint8_t*, uint8_t*);
 	uint8_t* hash(uint8_t*, uint8_t*);
 	uint8_t* padding(uint8_t*);
 	uint8_t* int_to_arr(int);
