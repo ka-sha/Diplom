@@ -97,7 +97,7 @@ uint8_t* HashFunctionMora::P(uint8_t* block)
 	for (int i = 0; i < 16; i++) {
 		const uint8_t index = TAU[i];
 		const uint8_t block_index = index / 2;
-		const uint8_t block_value = (index % 2 == 0) ? block[block_index] >> 4 : block[block_index];
+		const uint8_t block_value = (index % 2 == 0) ? block[block_index] >> 4 : block[block_index] & 0xf;
 		res[i / 2] ^= (i % 2 == 0) ? (block_value << 4) : block_value;
 	}
 
@@ -214,7 +214,7 @@ uint8_t* HashFunctionMora::int_to_arr(int index)
 	return res;
 }
 
-void HashFunctionMora::print_array(uint8_t* result)
+void HashFunctionMora::print_array(const uint8_t* result)
 {
 	for (int i = 0; i < 8; i++)
 	{
