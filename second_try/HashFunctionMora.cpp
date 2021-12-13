@@ -172,10 +172,10 @@ uint8_t* HashFunctionMora::add64(uint8_t* a, uint8_t* b)
 	uint8_t* res = new uint8_t[8];
 	int internal = 0;
 
-	for (int i = 0; i < 7; i++)
+	for (int i = 0; i < 8; i++)
 	{
 		internal = a[i] + b[i] + (internal >> 8);
-		res[i] = internal ^ 0xff;
+		res[i] = internal & 0xff;
 	}
 
 	return res;
