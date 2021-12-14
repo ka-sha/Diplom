@@ -1,13 +1,17 @@
+#include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <vector>
-#include <chrono>
 #include "HashFunctionMora.h"
+#include <fstream>
 
 constexpr auto n = 64;
 constexpr auto LEN = 8;
 
 using namespace std::chrono;
 
+
+void X(const uint8_t* a, const uint8_t* b, uint8_t* res);
 
 static const uint8_t PI[16] = { 15, 9, 1, 7, 13, 12, 2, 8, 6, 5, 14, 3, 0, 11, 4, 10 };
 static const uint8_t TAU[16] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
@@ -26,6 +30,70 @@ static const uint8_t C[8][8] = {
 	{ 0xf8, 0x0d, 0x49, 0xaf, 0xde, 0x04, 0x4b, 0xf9 },
 	{ 0x8c, 0xbb, 0xdf, 0x71, 0xcc, 0xaa, 0x43, 0xf1 }
 };
+
+static const uint16_t T[4][16] = {
+	{ 0x8147, 0x643f, 0xc86d, 0x2d15, 0x328e, 0xfae3, 0xb3c9, 0xac52,
+	  0xe578, 0x9edc, 0x492a, 0x7ba4, 0x0000, 0xd7f6, 0x56b1, 0x1f9b },
+	{ 0x4564, 0x37b3, 0x6e56, 0x1c81, 0x8ac8, 0xe49e, 0xcfac, 0x59e5,
+	  0x72d7, 0xd32d, 0x2b32, 0xa1fa, 0x0000, 0xf81f, 0xbd7b, 0x9649 },
+	{ 0xefd2, 0xd918, 0x9123, 0xa7e9, 0xfd94, 0x6cb7, 0x1246, 0x483b,
+	  0x36ca, 0xb5af, 0x7ef1, 0x8365, 0x0000, 0xcb5e, 0x248c, 0x5a7d },
+	{ 0xd877, 0x16ff, 0x2cdd, 0xe255, 0x93ee, 0xbf33, 0x4b99, 0x3a22,
+	  0xce88, 0xa9cc, 0xf4aa, 0x6744, 0x0000, 0x5d66, 0x8511, 0x71bb }
+};
+
+
+
+
+void fast_LPS(uint8_t* res)
+{
+	uint16_t* tmp_res = new uint16_t[4];
+	tmp_res[0] = T[0][res[0] >> 4] ^ T[1][res[2] >> 4] ^ T[2][res[4] >> 4] ^ T[3][res[6] >> 4];
+	tmp_res[1] = T[0][res[0] & 0xf] ^ T[1][res[2] & 0xf] ^ T[2][res[4] & 0xf] ^ T[3][res[6] & 0xf];
+	tmp_res[2] = T[0][res[1] >> 4] ^ T[1][res[3] >> 4] ^ T[2][res[5] >> 4] ^ T[3][res[7] >> 4];
+	tmp_res[3] = T[0][res[1] & 0xf] ^ T[1][res[3] & 0xf] ^ T[2][res[5] & 0xf] ^ T[3][res[7] & 0xf];
+
+	memcpy(res, tmp_res, 8);
+	delete[] tmp_res;
+}
+
+void fast_get_key(uint8_t* K, int i)
+{
+	X(K, C[i], K);
+	fast_LPS(K);
+}
+
+void fast_E(uint8_t* K, uint8_t* m, uint8_t* res)
+{
+	X(K, m, res);
+
+	for (int i = 0; i < 8; i++)
+	{
+		fast_LPS(res);
+		fast_get_key(K, i);
+		X(K, res, res);
+	}
+}
+
+void fast_gN(uint8_t* h, uint8_t* m, uint8_t* N)
+{
+	uint8_t* K = new uint8_t[8];
+	uint8_t* tmp_res = new uint8_t[8];
+
+	X(h, N, K);
+	fast_LPS(K);
+
+	fast_E(K, m, tmp_res);
+
+	X(tmp_res, h, tmp_res);
+	X(tmp_res, m, h);
+
+	delete[] K;
+	delete[] tmp_res;
+}
+
+
+
 
 void L(uint8_t* block)
 {
@@ -154,7 +222,7 @@ void print_array(uint8_t* arr)
 {
 	for (int i = 0; i < LEN; i++)
 	{
-		std::cout << std::hex << (int)(arr[i]) << " ";
+		std::cout << std::hex << std::setw(2) << (int)arr[i] << " ";
 	}
 	std::cout << std::endl;
 }
@@ -280,7 +348,8 @@ void diamond_structure(int d)
 	//	}
 	//	cout << endl;
 	//} // до сюда
-	HashFunctionMora hf(8);
+	 
+	//HashFunctionMora hf(8);
 	uint8_t* N = new uint8_t[8];
 	std::fill_n(N, 8, 0);
 
@@ -322,22 +391,26 @@ void diamond_structure(int d)
 				_1message_last = _1message_first + (unsigned long long int)ceil((pow(2, (n-phase)/2 + 1)) / (pow(2, phase) - 2*step));
 				number2array(_1message_first, _1message);
 				
-				std::cout << "   Set M from " << message_first << " to " << message_last << std::endl;
-				std::cout << "   Set M' from " << _1message_first << " to " << _1message_last << std::endl;
+				std::cout << "   Set M from " << message_first << " to " << message_last << ". Cardinality: " << count_bound(message_first, message_last) << std::endl;
+				std::cout << "   Set M' from " << _1message_first << " to " << _1message_last << ". Cardinality: " << count_bound(_1message_first, _1message_last) << std::endl;
 
 				bool total_break = false;
 				for (size_t i = 0; i < A.size(); i++) //перебираем все хэши из A
 				{
 					hi = A.at(i);
+					std::cout << "i = " << i << std::endl;
 					for (size_t j = 0; j < count_bound(message_first, message_last); j++)
 					{
-						h1 = hf.gN(hi, message, N);
+						memcpy(h1, hi, LEN);
+						gN(h1, message, N);
 						for (size_t k = i + 1; k < A.size(); k++)
 						{
 							hk = A.at(k);
+							std::cout << "k = " << k << std::endl;
 							for (size_t t = 0; t < count_bound(_1message_first, _1message_last); t++)
 							{
-								h2 = hf.gN(hk, _1message, N);
+								memcpy(h2, hk, LEN);
+								gN(h2, _1message, N);
 								if (equal_array(h1, h2))
 								{
 									A.erase(A.begin() + i); //убираем hi
@@ -364,6 +437,8 @@ void diamond_structure(int d)
 									break;
 								}
 								add1(_1message);
+								if (t % 1000000 == 0)
+									std::cout << t << std::endl;
 							}
 							if (total_break)
 							{
@@ -385,10 +460,12 @@ void diamond_structure(int d)
 					message_first = _1message_last;
 					message_last = (unsigned long long int)(message_first + (unsigned long long int)ceil((pow(2, (n + phase) / 2 - 1)) / (pow(2, phase) - 2 * step)));
 					number2array(message_first, message);
+					std::cout << "   Change set M from " << message_first << " to " << message_last << ". Cardinality: " << count_bound(message_first, message_last) << std::endl;
 
 					_1message_first = message_last;
 					_1message_last = (unsigned long long int)(_1message_first + (unsigned long long int)ceil((pow(2, (n - phase) / 2 + 1)) / (pow(2, phase) - 2 * step)));
 					number2array(_1message_first, _1message);
+					std::cout << "   Change set M' from " << _1message_first << " to " << _1message_last << ". Cardinality: " << count_bound(_1message_first, _1message_last) << std::endl;
 					i = 0;
 					std::cout << "recount" << std::endl;
 				}
@@ -405,10 +482,12 @@ void diamond_structure(int d)
 		bool total_break = false;
 		for (size_t i = 0; i < count_bound(message_first, message_last); i++)
 		{
-			uint8_t* h1 = hf.gN(h1_last, message, N);
+			memcpy(h1, h1_last, LEN);
+			gN(h1, message, N);
 			for (size_t j = 0; j < count_bound(message_first, message_last), i != j; j++)
 			{
-				uint8_t* h2 = hf.gN(h2_last, message1, N);
+				memcpy(h2, h2_last, LEN);
+				gN(h2, message1, N);
 				if (equal_array(h1, h2))
 				{
 					A.erase(A.begin());
@@ -443,6 +522,9 @@ void diamond_structure(int d)
 			}
 
 		}
+		delete[] message1;
+		delete[] h1_last;
+		delete[] h2_last;
 
 		add64(N);
 		B.push_back(B_in_jump);
@@ -467,7 +549,8 @@ void diamond_structure(int d)
 	bool total_break = false;
 	for (size_t i = 0; i < count_bound(message_first, message_last); i++)
 	{
-		uint8_t* h1 = hf.gN(h1_last, message, N);
+		memcpy(h1, h1_last, LEN);
+		gN(h1, message, N);
 		for (size_t j = 0; j < count_bound(message_first, message_last); j++)
 		{
 			if (i == j)
@@ -475,7 +558,8 @@ void diamond_structure(int d)
 				add1(message1);
 				continue;
 			}
-			uint8_t* h2 = hf.gN(h2_last, message1, N);
+			memcpy(h2, h2_last, LEN);
+			gN(h2, message1, N);
 			if (equal_array(h1, h2))
 			{
 				std::pair<uint8_t*, uint8_t*> h1_and_x1(h1_last, message);
@@ -515,6 +599,9 @@ void diamond_structure(int d)
 		}
 
 	}
+	delete[] message1;
+	delete[] h1_last;
+	delete[] h2_last;
 
 	add64(N);
 	B.push_back(B_in_jump);
@@ -548,8 +635,50 @@ void add_one(uint8_t* b)
 	print_array(b);
 }
 
+void generate_tables()
+{
+	std::ofstream file;
+	file.open("precalctable.txt");
+
+	for (int j = 0; j < 4; j++)
+	{
+		file << "{"; //fprintf(file, "{");
+			for (int i = 0; i < 16; i++)
+			{
+				if (i)
+				{
+					file << ", "; //fprintf(file, ", ");
+				}
+				if (i % 4 == 0)
+				{
+					file << "\n\t"; //fprintf(file, "\n\t");
+				}
+				uint8_t t = PI[i];
+				uint16_t a = 0x00;
+				for (int k = 0; k < 4; k++)
+				{
+					if (t & 1)
+					{
+						a ^= A[15 - 4 * j - k];
+					}
+					t >>= 1;
+				}
+				file << "0x";//fprintf(file, "0x");
+				file << std::hex << a; //fprintf(file, "%04hx", a);
+			}
+		if (j != 3)
+		{
+			file << "\n},\n"; //fprintf(file, ",\n}\n");
+		}
+	}
+	file << "\n}\n"; //fprintf(file, "\n}\n");
+	
+}
+
 int main()
 {
+	//generate_tables();
+
 	/*uint8_t messagef[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 	uint8_t message0[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	uint8_t message_rand[8] = {0x01, 0xd4, 0x44, 0x90, 0x7e, 0xfb, 0x8c, 0xf7 };
@@ -557,10 +686,10 @@ int main()
 	hash_func.print_array(message_rand);
 	hash_func.print_array(hash_func.gN(message0, message_rand, message0));*/
 	
-	//diamond_structure(2);
+	//diamond_structure(4);
 
 
-	uint8_t* a = new uint8_t[8];
+	/*uint8_t* a = new uint8_t[8];
 	uint8_t* b = new uint8_t[8];
 	uint8_t* res = new uint8_t[8];
 	for (int i = 0; i < 8; i++)
@@ -609,13 +738,32 @@ int main()
 	uint8_t h[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	uint8_t N[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	uint8_t gn[8] = {0x01, 0xd4, 0x44, 0x90, 0x7e, 0xfb, 0x8c, 0xf7 };
+	auto start = high_resolution_clock::now();
 	gN(h, gn, N);
 	std::cout << "gN operation" << std::endl;
 	print_array(h);
 	print_array(gn);
 	print_array(N);
 	std::cout << std::endl;
-	
+	auto stop = high_resolution_clock::now();
+	auto duration = duration_cast<microseconds>(stop - start);
+	std::cout << std::dec << duration.count() << " microseconds" << std::endl;*/
+
+
+	/*std::vector<uint8_t*> vec;
+	uint8_t* avec = new uint8_t[8];
+	for (int i = 0; i < 8; i++)
+	{
+		avec[i] = i;
+	}
+	vec.push_back(avec);
+	print_array(vec.at(0));
+	for (int i = 0; i < 8; i++)
+	{
+		avec[i] = 66;
+	}
+	print_array(vec.at(0));*/
+
 	/*uint8_t* a = new uint8_t[8];
 	for (int i = 0; i < 8; i++)
 	{
@@ -649,4 +797,18 @@ int main()
 	for (auto const& value : a)
 		print_array(value);
 	cout << endl;*/
+
+	uint8_t h[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t N[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t gn[8] = { 0x01, 0xd4, 0x44, 0x90, 0x7e, 0xfb, 0x8c, 0xf7 };
+	auto start = high_resolution_clock::now();
+	fast_gN(h, gn, N);
+	std::cout << "gN operation" << std::endl;
+	print_array(h);
+	print_array(gn);
+	print_array(N);
+	std::cout << std::endl;
+	auto stop = high_resolution_clock::now();
+	auto duration = duration_cast<microseconds>(stop - start);
+	std::cout << std::dec << duration.count() << " microseconds" << std::endl;
 }
