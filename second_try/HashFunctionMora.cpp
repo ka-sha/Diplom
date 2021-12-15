@@ -29,82 +29,101 @@ HashFunctionMora::HashFunctionMora(int message_length)
 	std::fill_n(sigma, 8, 0);
 	std::fill_n(v_0, 8, 0);
 	std::fill_n(v_64, 8, 0);
-	v_64[0] = 0x40;
+	v_64[7] = 0x40;
 	message_len = message_length;
 }
 
-uint8_t* HashFunctionMora::calculate_hash(uint8_t* data)
+HashFunctionMora::~HashFunctionMora()
 {
-	uint8_t* res = new uint8_t[8];
+	delete[] N;
+	delete[] sigma;
+	delete[] v_0;
+	delete[] v_64;
+}
+
+void HashFunctionMora::calculate_hash(uint8_t* data, uint8_t* res)
+{
+	uint8_t* tmp_res = new uint8_t[8];
 	std::fill_n(res, 8, 0);
 
 	while (message_len >= 8)
 	{
-		res = hash(res, data);
+		hash(tmp_res, data);
 		data += 8;
 		message_len -= 8;
 	}
-	res = hash_appendix(res, data);
-
-	return res;
+	hash_appendix(tmp_res, data);
+	
+	memcpy(res, tmp_res, 8);
+	delete[] tmp_res;
 }
 
-uint8_t* HashFunctionMora::hash(uint8_t* h, uint8_t* m)
+void HashFunctionMora::hash(uint8_t* h, uint8_t* m)
 {
-	uint8_t* res = gN(h, m, N);
-	N = add64(N, v_64);
-	sigma = add64(sigma, m);
-
-	return res;
+	gN(h, m, N);
+	add64(N, v_64, N);
+	add64(sigma, m, sigma);
 }
 
-uint8_t* HashFunctionMora::gN(uint8_t* h, uint8_t* m, uint8_t* N)
+void HashFunctionMora::gN(uint8_t* h, uint8_t* m, uint8_t* N)
 {
-	return X(X(E(L(P(S(X(h, N)))), m), h), m);
+	uint8_t* K = new uint8_t[8];
+	uint8_t* tmp_res = new uint8_t[8];
+
+	X(h, N, K);
+	S(K);
+	P(K);
+	L(K);
+
+	E(K, m, tmp_res);
+
+	X(tmp_res, h, tmp_res);
+	X(tmp_res, m, h);
+
+	delete[] K;
+	delete[] tmp_res;
 }
 
-uint8_t* HashFunctionMora::X(const uint8_t* a, const uint8_t* b)
+void HashFunctionMora::X(const uint8_t* a, const uint8_t* b, uint8_t* res)
 {
-	uint8_t* res = new uint8_t[8];
-
 	for (int i = 0; i < 8; i++)
 	{
 		res[i] = a[i] ^ b[i];
 	}
-
-	return res;
 }
 
-uint8_t* HashFunctionMora::S(uint8_t* block)
+void HashFunctionMora::S(uint8_t* block)
 {
 	uint8_t* res = new uint8_t[8];
+	uint8_t left_state, right_state;
 
 	for (int i = 0; i < 8; i++)
 	{
-		const uint8_t left_state = block[i] >> 4;
-		const uint8_t right_state = block[i] & 0xf;
+		left_state = block[i] >> 4;
+		right_state = block[i] & 0xf;
 		res[i] = (PI[left_state] << 4) ^ PI[right_state];
 	}
-
-	return res;
+	memcpy(block, res, 8);
+	delete[] res;
 }
 
-uint8_t* HashFunctionMora::P(uint8_t* block)
+void HashFunctionMora::P(uint8_t* block)
 {
 	uint8_t* res = new uint8_t[8];
 	std::fill_n(res, 8, 0);
+	uint8_t index, block_index, block_value;
 
 	for (int i = 0; i < 16; i++) {
-		const uint8_t index = TAU[i];
-		const uint8_t block_index = index / 2;
-		const uint8_t block_value = (index % 2 == 0) ? block[block_index] >> 4 : block[block_index] & 0xf;
+		index = TAU[i];
+		block_index = index / 2;
+		block_value = (index % 2 == 0) ? block[block_index] >> 4 : block[block_index] & 0xf;
 		res[i / 2] ^= (i % 2 == 0) ? (block_value << 4) : block_value;
 	}
-
-	return res;
+	memcpy(block, res, 8);
+	delete[] res;
 }
 
-uint8_t* HashFunctionMora::L(uint8_t* block)
+void HashFunctionMora::L(uint8_t* block)
 {
 	uint16_t* tmp_res = new uint16_t[4];
 	std::fill_n(tmp_res, 4, 0);
@@ -143,75 +162,77 @@ uint8_t* HashFunctionMora::L(uint8_t* block)
 		}
 	}
 
-	return res;
+	memcpy(block, res, 8);
+	delete[] tmp_res;
+	delete[] res;
 }
 
-uint8_t* HashFunctionMora::E(uint8_t* K, uint8_t* m)
+void HashFunctionMora::E(uint8_t* K, uint8_t* m, uint8_t* res)
 {
-	uint8_t* res = X(K, m);
-	uint8_t* Ki = new uint8_t[8];
-	memcpy(Ki, K, 8);
+	X(K, m, res);
 
 	for (int i = 0; i < 8; i++)
 	{
-		res = L(P(S(res)));
-		Ki = get_key(Ki, i);
-		res = X(Ki, res);
+		S(res);
+		P(res);
+		L(res);
+		get_key(K, i);
+		X(K, res, res);
 	}
-
-	return res;
 }
 
-uint8_t* HashFunctionMora::get_key(uint8_t* K, int i)
+void HashFunctionMora::get_key(uint8_t* K, int i)
 {
-	return L(P(S(X(K, C[i]))));
+	X(K, C[i], K);
+	S(K);
+	P(K);
+	L(K);
 }
 
-uint8_t* HashFunctionMora::add64(uint8_t* a, uint8_t* b)
+void HashFunctionMora::add64(uint8_t* a, uint8_t* b, uint8_t* res)
 {
-	uint8_t* res = new uint8_t[8];
 	int internal = 0;
-
-	for (int i = 0; i < 8; i++)
+	for (int i = 7; i >= 0; i--)
 	{
 		internal = a[i] + b[i] + (internal >> 8);
 		res[i] = internal & 0xff;
 	}
-
-	return res;
 }
 
-uint8_t* HashFunctionMora::hash_appendix(uint8_t* h, uint8_t* m)
+void HashFunctionMora::hash_appendix(uint8_t* h, uint8_t* m)
 {
-	uint8_t* tmp_m = padding(m);
-	uint8_t* res = gN(h, tmp_m, N);
-	N = add64(N, int_to_arr(message_len));
-	sigma = add64(sigma, tmp_m);
-	res = gN(res, N, v_0);
-	res = gN(res, sigma, v_0);
+	uint8_t* message_int = new uint8_t[8];
 
-	return res;
+	padding(m);
+	gN(h, m, N);
+	int_to_arr(message_len, message_int);
+	add64(N, message_int, N);
+	add64(sigma, m, sigma);
+	gN(h, N, v_0);
+	gN(h, sigma, v_0);
+
+	delete[] message_int;
 }
 
-uint8_t* HashFunctionMora::padding(uint8_t* m)
-{
-	uint8_t* res = new uint8_t[8];
-	std::fill_n(res, 8, 0);
-
-	memcpy(res, m, message_len);
-	res[message_len] = 1;
-
-	return res;
-}
-
-uint8_t* HashFunctionMora::int_to_arr(int index)
+void HashFunctionMora::padding(uint8_t* m)
 {
 	uint8_t* res = new uint8_t[8];
 	std::fill_n(res, 8, 0);
+	//message_len from 0 to 7
+	int i = 7 - message_len;
+	
+	res[i++] = 0x01;
+	for (int j = i; j < 8; j++)
+	{
+		res[j] = m[j];
+	}
+	memcpy(m, res, 8);
+	delete[] res;
+}
 
-	res[0] = (uint8_t) (2 ^ index);
-
-	return res;
+void HashFunctionMora::int_to_arr(int index, uint8_t* res)
+{
+	res[7] = (uint8_t) (2 ^ index);
 }
 
 void HashFunctionMora::print_array(const uint8_t* result)

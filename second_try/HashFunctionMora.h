@@ -4,8 +4,9 @@ class HashFunctionMora
 {
 public:
 	HashFunctionMora(int message_length);
-	uint8_t* calculate_hash(uint8_t* data);
-	uint8_t* gN(uint8_t* h, uint8_t* m, uint8_t* N);
+	~HashFunctionMora();
+	void calculate_hash(uint8_t* data, uint8_t* res);
+	void gN(uint8_t* h, uint8_t* m, uint8_t* N);
 	void print_array(const uint8_t* result);
 
 private:
@@ -15,15 +16,15 @@ private:
 	uint8_t* v_64;
 	int message_len;
 
-	uint8_t* X(const uint8_t* a, const uint8_t* b);
-	uint8_t* add64(uint8_t* a, uint8_t* b);
-	uint8_t* S(uint8_t* block);
-	uint8_t* P(uint8_t* block);
-	uint8_t* L(uint8_t* block);
-	uint8_t* get_key(uint8_t* K, int i);
-	uint8_t* E(uint8_t* K, uint8_t* m);
-	uint8_t* hash(uint8_t* h, uint8_t* m);
-	uint8_t* padding(uint8_t* m);
-	uint8_t* int_to_arr(int index);
-	uint8_t* hash_appendix(uint8_t* h, uint8_t* m);
+	void X(const uint8_t* a, const uint8_t* b, uint8_t* res);
+	void add64(uint8_t* a, uint8_t* b, uint8_t* res);
+	void S(uint8_t* block);
+	void P(uint8_t* block);
+	void L(uint8_t* block);
+	void get_key(uint8_t* K, int i);
+	void E(uint8_t* K, uint8_t* m, uint8_t* res);
+	void hash(uint8_t* h, uint8_t* m);
+	void padding(uint8_t* m);
+	void int_to_arr(int index, uint8_t* message_int);
+	void hash_appendix(uint8_t* h, uint8_t* m);
 };
