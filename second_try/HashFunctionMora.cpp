@@ -41,19 +41,15 @@ HashFunctionMora::~HashFunctionMora()
 
 void HashFunctionMora::calculate_hash(uint8_t* data, uint8_t* res)
 {
-	uint8_t* tmp_res = new uint8_t[HASH_LEN];
 	std::fill_n(res, HASH_LEN, 0);
 
 	while (message_len >= 8)
 	{
-		hash(tmp_res, data);
+		hash(res, data);
 		data += 8;
 		message_len -= 8;
 	}
-	hash_appendix(tmp_res, data);
-	
-	memcpy(res, tmp_res, HASH_LEN);
-	delete[] tmp_res;
+	hash_appendix(res, data);
 }
 
 void HashFunctionMora::hash(uint8_t* h, uint8_t* m)
