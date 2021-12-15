@@ -10,11 +10,11 @@ constexpr auto LEN = 8;
 
 using namespace std::chrono;
 
-void print_array(uint8_t* arr)
+void print_array(uint8_t* arr, int len)
 {
-	for (int i = 0; i < LEN; i++)
+	for (int i = 0; i < len; i++)
 	{
-		std::cout << std::hex << std::setw(2) << (int)arr[i] << " ";
+		printf("%02x", arr[i]);
 	}
 	std::cout << std::endl;
 }
@@ -215,15 +215,15 @@ void diamond_structure(int d)
 									total_break = true;
 
 									std::cout << "   colliding pairs hi: ";
-									print_array(hi);
+									print_array(hi, 8);
 									std::cout << "   and message: ";
-									print_array(message);
+									print_array(message, 8);
 									std::cout << "   colliding pairs hk: ";
-									print_array(hk);
+									print_array(hk, 8);
 									std::cout << "   and message: ";
-									print_array(_1message);
+									print_array(_1message, 8);
 									std::cout << "   result: ";
-									print_array(h1);
+									print_array(h1, 8);
 									std::cout << std::endl;
 
 									break;
@@ -292,15 +292,15 @@ void diamond_structure(int d)
 					total_break = true;
 
 					std::cout << "   colliding pairs h1_last: ";
-					print_array(h1_last);
+					print_array(h1_last, 8);
 					std::cout << "   and message: ";
-					print_array(message);
+					print_array(message, 8);
 					std::cout << "   colliding pairs h2_last: ";
-					print_array(h2_last);
+					print_array(h2_last, 8);
 					std::cout << "   and message: ";
-					print_array(message1);
+					print_array(message1, 8);
 					std::cout << "   result: ";
-					print_array(h1);
+					print_array(h1, 8);
 					std::cout << std::endl;
 
 					break;
@@ -369,15 +369,15 @@ void diamond_structure(int d)
 				total_break = true;
 
 				std::cout << "   colliding pairs h1_last: ";
-				print_array(h1_last);
+				print_array(h1_last, 8);
 				std::cout << "   and message: ";
-				print_array(message);
+				print_array(message, 8);
 				std::cout << "   colliding pairs h2_last: ";
-				print_array(h2_last);
+				print_array(h2_last, 8);
 				std::cout << "   and message: ";
-				print_array(message1);
+				print_array(message1, 8);
 				std::cout << "   result: ";
-				print_array(h1);
+				print_array(h1, 8);
 				std::cout << std::endl;
 
 				break;
@@ -418,13 +418,13 @@ void add_one(uint8_t* b)
 		cout << (int)b[i] << " ";
 	}
 	cout << endl;*/
-	print_array(b);
+	print_array(b, 8);
 	memcpy(b, a, 8);
-	print_array(b);
+	print_array(b, 8);
 	a[1] = 100;
-	print_array(b);
+	print_array(b, 8);
 	a = NULL;
-	print_array(b);
+	print_array(b, 8);
 }
 
 int main()
@@ -434,12 +434,12 @@ int main()
 	uint8_t messagef[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 	uint8_t message0[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	uint8_t message_rand[8] = {0x01, 0xd4, 0x44, 0x90, 0x7e, 0xfb, 0x8c, 0xf7 };
-	HashFunctionMora hash_func(8);
-	hash_func.print_array(message_rand);
+	HashFunctionMora hash_func(8, 4);
+	print_array(message_rand, 8);
 	hash_func.gN(message0, message_rand, message0);
-	hash_func.print_array(message0);
+	hash_func.print_hash(message0);
 	std::cout << std::endl;
-	
+
 	//diamond_structure(4);
 
 

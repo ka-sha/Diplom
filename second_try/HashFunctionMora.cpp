@@ -13,6 +13,22 @@ HashFunctionMora::HashFunctionMora(int message_length)
 	std::fill_n(v_64, 8, 0);
 	v_64[7] = 0x40;
 	message_len = message_length;
+	HASH_LEN = 8;
+}
+
+HashFunctionMora::HashFunctionMora(int message_length, const int hash_len)
+{
+	N = new uint8_t[8];
+	sigma = new uint8_t[8];
+	v_0 = new uint8_t[8];
+	v_64 = new uint8_t[8];
+	std::fill_n(N, 8, 0);
+	std::fill_n(sigma, 8, 0);
+	std::fill_n(v_0, 8, 0);
+	std::fill_n(v_64, 8, 0);
+	v_64[7] = 0x40;
+	message_len = message_length;
+	HASH_LEN = hash_len;
 }
 
 HashFunctionMora::~HashFunctionMora()
@@ -25,8 +41,8 @@ HashFunctionMora::~HashFunctionMora()
 
 void HashFunctionMora::calculate_hash(uint8_t* data, uint8_t* res)
 {
-	uint8_t* tmp_res = new uint8_t[8];
-	std::fill_n(res, 8, 0);
+	uint8_t* tmp_res = new uint8_t[HASH_LEN];
+	std::fill_n(res, HASH_LEN, 0);
 
 	while (message_len >= 8)
 	{
@@ -36,7 +52,7 @@ void HashFunctionMora::calculate_hash(uint8_t* data, uint8_t* res)
 	}
 	hash_appendix(tmp_res, data);
 	
-	memcpy(res, tmp_res, 8);
+	memcpy(res, tmp_res, HASH_LEN);
 	delete[] tmp_res;
 }
 
@@ -51,19 +67,29 @@ void HashFunctionMora::gN(uint8_t* h, uint8_t* m, uint8_t* N)
 {
 	uint8_t* K = new uint8_t[8];
 	uint8_t* tmp_res = new uint8_t[8];
+	uint8_t* h_8 = new uint8_t[8];
+	padd_to_8(h, h_8);
 
-	X(h, N, K);
+	X(h_8, N, K);
 	S(K);
 	P(K);
 	L(K);
 
 	E(K, m, tmp_res);
 
-	X(tmp_res, h, tmp_res);
-	X(tmp_res, m, h);
+	X(tmp_res, h_8, tmp_res);
+	X(tmp_res, m, h_8);
+	memcpy(h, h_8, HASH_LEN);
 
 	delete[] K;
 	delete[] tmp_res;
+	delete[] h_8;
+}
+
+void HashFunctionMora::padd_to_8(uint8_t* h, uint8_t* res)
+{
+	std::fill_n(res, 8, 0);
+	memcpy(res, h, HASH_LEN);
 }
 
 void HashFunctionMora::X(const uint8_t* a, const uint8_t* b, uint8_t* res)
@@ -217,11 +243,11 @@ void HashFunctionMora::int_to_arr(int index, uint8_t* res)
 	res[7] = (uint8_t) (2 ^ index);
 }
 
-void HashFunctionMora::print_array(const uint8_t* result)
+void HashFunctionMora::print_hash(const uint8_t* arr)
 {
-	for (int i = 0; i < 8; i++)
+	for (int i = 0; i < HASH_LEN; i++)
 	{
-		printf("%02x", result[i]);
+		printf("%02x", arr[i]);
 	}
 	std::cout << std::endl;
 }

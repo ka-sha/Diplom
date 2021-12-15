@@ -22,10 +22,11 @@ class HashFunctionMora
 {
 public:
 	HashFunctionMora(int message_length);
+	HashFunctionMora(int message_length, const int HASH_LEN);
 	~HashFunctionMora();
 	void calculate_hash(uint8_t* data, uint8_t* res);
 	void gN(uint8_t* h, uint8_t* m, uint8_t* N);
-	void print_array(const uint8_t* result);
+	void print_hash(const uint8_t* result);
 
 private:
 	uint8_t* N;
@@ -33,6 +34,7 @@ private:
 	uint8_t* v_0;
 	uint8_t* v_64;
 	int message_len;
+	int HASH_LEN;
 
 	void X(const uint8_t* a, const uint8_t* b, uint8_t* res);
 	void add64(uint8_t* a, uint8_t* b, uint8_t* res);
@@ -45,4 +47,5 @@ private:
 	void padding(uint8_t* m);
 	void int_to_arr(int index, uint8_t* message_int);
 	void hash_appendix(uint8_t* h, uint8_t* m);
+	void padd_to_8(uint8_t* h, uint8_t* res);
 };
