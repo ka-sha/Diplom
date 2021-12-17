@@ -27,6 +27,7 @@ public:
 	void calculate_hash(uint8_t* data, uint8_t* res);
 	void gN(uint8_t* h, uint8_t* m, uint8_t* N);
 	void print_hash(const uint8_t* result);
+	int get_HASH_LEN();
 
 private:
 	uint8_t* N;

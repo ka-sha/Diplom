@@ -247,3 +247,8 @@ void HashFunctionMora::print_hash(const uint8_t* arr)
 	}
 	std::cout << std::endl;
 }
+
+int HashFunctionMora::get_HASH_LEN()
+{
+	return HASH_LEN;
+}
