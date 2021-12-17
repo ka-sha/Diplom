@@ -5,12 +5,12 @@
 #include <vector>
 #include "HashFunctionMora.h"
 
-void diamond_structure(int d, HashFunctionMora hf);
+void diamond_structure(int d, HashFunctionMora& hf);
 void generate_blocks(std::vector<uint8_t*>& res, unsigned long count, int block_length);
-uint8_t* generate_rand_block(int len, std::vector<uint8_t*> vec);
+uint8_t* generate_rand_block(int len, std::vector<uint8_t*>& vec);
 void fill_arr_rand(uint8_t* res, int len);
 bool equal_array(uint8_t* a, uint8_t* b, int len);
-void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res, std::vector<uint8_t*> A, std::vector<uint8_t*> M, HashFunctionMora hf, uint8_t* N);
+void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res, std::vector<uint8_t*>& A, std::vector<uint8_t*>& M, HashFunctionMora& hf, uint8_t* N);
 std::string arr_to_string(uint8_t* arr, int len);
 
 void print_array(uint8_t* arr, int len)
@@ -83,7 +83,7 @@ int main()
 			std::cout << "ha" << std::endl;
 }
 
-void diamond_structure(int d, HashFunctionMora hf)
+void diamond_structure(int d, HashFunctionMora& hf)
 {
 	int n = hf.get_HASH_LEN();
 
@@ -121,7 +121,7 @@ void diamond_structure(int d, HashFunctionMora hf)
 	std::cout << "tyt1" << std::endl;
 	generate_blocks(M, m_cardinality, n);
 	std::cout << "tyt2" << std::endl;
-	//calculate_H(H, A, M, hf, N);
+	calculate_H(H, A, M, hf, N);
 	std::cout << "tyt3" << std::endl;
 
 	for (size_t jump = d; jump >= 2; jump--)
@@ -146,7 +146,7 @@ void generate_blocks(std::vector <uint8_t*>& res, unsigned long count, int block
 	}
 }
 
-uint8_t* generate_rand_block(int len, std::vector<uint8_t*> vec)
+uint8_t* generate_rand_block(int len, std::vector<uint8_t*>& vec)
 {
 	uint8_t* block = new uint8_t[len];
 	while (true)
@@ -184,7 +184,7 @@ bool equal_array(uint8_t* a, uint8_t* b, int len)
 	return true;
 }
 
-void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res, std::vector<uint8_t*> A, std::vector<uint8_t*> M, HashFunctionMora hf, uint8_t* N)
+void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res, std::vector<uint8_t*>& A, std::vector<uint8_t*>& M, HashFunctionMora& hf, uint8_t* N)
 {
 	int n = hf.get_HASH_LEN();
 	for (uint8_t* hash : A)
