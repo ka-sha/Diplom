@@ -12,6 +12,8 @@ void fill_arr_rand(uint8_t* res, int len);
 bool equal_array(uint8_t* a, uint8_t* b, int len);
 void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res, std::vector<uint8_t*>& A, std::vector<uint8_t*>& M, HashFunctionMora& hf, uint8_t* N);
 std::string arr_to_string(uint8_t* arr, int len);
+void calculate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, unsigned long count, int len);
+uint8_t* generate_rand_distinct_block(std::vector<uint8_t*>& vec1, std::vector<uint8_t*>& vec2, int len);
 
 void print_array(uint8_t* arr, int len)
 {
@@ -117,22 +119,49 @@ void diamond_structure(int d, HashFunctionMora& hf)
 	uint8_t* N = new uint8_t[n];
 	std::fill_n(N, n, 0);
 
-	int m_cardinality = (int)pow(2, ((8 * n - d) / 2) - 1);
-	std::cout << "tyt1" << std::endl;
-	generate_blocks(M, m_cardinality, n);
-	std::cout << "tyt2" << std::endl;
-	calculate_H(H, A, M, hf, N);
-	std::cout << "tyt3" << std::endl;
-
 	for (size_t jump = d; jump >= 2; jump--)
 	{
-		int m_cardinality = (int)pow(2, ((8 * n - jump) / 2) - 1);
-		/*generate_blocks(M, m_cardinality, n);
-		calculate_H(H, A, M, hf, N);*/
+		std::cout << "jump: " << jump << std::endl;
 
-		for (size_t step = jump; step >= 2; step--)
+		std::vector<std::pair<std::string, std::string>> B_in_jump;
+		unsigned long m_cardinality = (unsigned long)pow(2, ((8 * n - jump) / 2) - 1);
+		generate_blocks(M, m_cardinality, n);				std::cout << "card M: " << M.size() << std::endl;
+		calculate_H(H, A, M, hf, N);						std::cout << "card H: " << H.size() << std::endl;
+
+		for (size_t phase = jump; phase >= 2; phase--)
 		{
+			std::cout << " phase: " << phase << std::endl;
 
+			size_t max_step = (size_t)pow(2, phase - 2);
+			for (size_t step = 0; step < max_step; step++)
+			{
+				std::cout << "  step: " << step << std::endl;
+
+				unsigned long m1_cardinality = (unsigned long)std::ceil(pow(2, (8 * n - phase) / 2 + 1) / (pow(2, phase) - 2 * step));
+				calculate_distinct_M1(M1, M, m1_cardinality, n);				std::cout << "card M1: " << M1.size() << std::endl;
+				calculate_H(H1, A, M1, hf, N);									std::cout << "card H1: " << H1.size() << std::endl;
+
+				for (auto h : H)
+				{
+					std::string hash_res = h.first;
+					std::pair<uint8_t*, uint8_t*> collision;
+					try {
+						collision = H1.at(hash_res);
+
+						// в tmp_A положить hash_res.to_arr (выделяем память)
+						// в B_in_jump положить h.second, collision
+						// удалить из A h.second.first, collision.first (освободить эту память)
+						// к M добавить M1
+						// M1 освободить
+						// H освободить 
+						// H заполнить с новыми A и M
+						// H1 освободить
+					}
+					catch (std::out_of_range ex) {
+						continue;
+					}
+				}
+			}
 		}
 	}
 }
@@ -156,6 +185,10 @@ uint8_t* generate_rand_block(int len, std::vector<uint8_t*>& vec)
 		for (auto arr : vec)
 		{
 			correct_block &= !equal_array(arr, block, len);
+			if (!correct_block)
+			{
+				break;
+			}
 		}
 		if (correct_block)
 		{
@@ -187,9 +220,9 @@ bool equal_array(uint8_t* a, uint8_t* b, int len)
 void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res, std::vector<uint8_t*>& A, std::vector<uint8_t*>& M, HashFunctionMora& hf, uint8_t* N)
 {
 	int n = hf.get_HASH_LEN();
-	for (uint8_t* hash : A)
+	for (auto hash : A)
 	{
-		for (uint8_t* m : M)
+		for (auto m : M)
 		{
 			uint8_t* res_hash = new uint8_t[n];
 			memcpy(res_hash, hash, n);
@@ -207,4 +240,44 @@ std::string arr_to_string(uint8_t* arr, int len)
 		convert << arr[i];
 	}
 	return convert.str();
+}
+
+void calculate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, unsigned long count, int len)
+{
+	for (size_t i = 0; i < count; i++)
+	{
+		uint8_t* block = generate_rand_distinct_block(res, already_exist, len);
+		res.push_back(block);
+	}
+}
+
+uint8_t* generate_rand_distinct_block(std::vector<uint8_t*>& vec1, std::vector<uint8_t*>& vec2, int len)
+{
+	uint8_t* block = new uint8_t[len];
+	
+	while (true)
+	{
+		fill_arr_rand(block, len);
+		bool correct_block = true;
+		for (auto arr : vec1)
+		{
+			correct_block &= !equal_array(arr, block, len);
+			if (!correct_block)
+			{
+				break;
+			}
+		}
+		for (auto arr : vec2)
+		{
+			correct_block &= !equal_array(arr, block, len);
+			if (!correct_block)
+			{
+				break;
+			}
+		}
+		if (correct_block)
+		{
+			return block;
+		}
+	}
 }
