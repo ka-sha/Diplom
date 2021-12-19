@@ -1,3 +1,5 @@
+#include <ctime>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -6,15 +8,32 @@
 #include "HashFunctionMora.h"
 
 void diamond_structure(int d, HashFunctionMora& hf);
-void generate_blocks(std::vector<uint8_t*>& res, unsigned long count, int block_length);
+void generate_blocks(std::vector<uint8_t*>& res, size_t count, int block_length);
+void generate_blocks(std::vector<uint8_t*>& res, size_t init_count, size_t count, int block_length);
 uint8_t* generate_rand_block(int len, std::vector<uint8_t*>& vec);
 void fill_arr_rand(uint8_t* res, int len);
 bool equal_array(uint8_t* a, uint8_t* b, int len);
-void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res, std::vector<uint8_t*>& A, std::vector<uint8_t*>& M, HashFunctionMora& hf, uint8_t* N);
+void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*,
+	uint8_t*>>& res,
+	std::vector<uint8_t*>& A,
+	std::vector<uint8_t*>& M,
+	HashFunctionMora& hf,
+	uint8_t* N);
 std::string arr_to_string(uint8_t* arr, int len);
 uint8_t* string_to_arr(std::string str);
-void calculate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, unsigned long count, int len);
+void calculate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, size_t count, int len);
 uint8_t* generate_rand_distinct_block(std::vector<uint8_t*>& vec1, std::vector<uint8_t*>& vec2, int len);
+void process_last_phase(std::vector<uint8_t*>& A,
+	std::vector<uint8_t*>& M,
+	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& H,
+	std::vector<std::pair<std::string, std::string>>& B_in_jump,
+	std::vector<uint8_t*>& tmp_A,
+	HashFunctionMora& hf,
+	uint8_t* N);
+void add64(uint8_t* block);
+void write_result_to_file(std::vector<std::vector<std::pair<std::string, std::string>>>& B);
+std::string arr_to_hexstring(uint8_t* arr, size_t len);
+
 
 void print_array(uint8_t* arr, int len)
 {
@@ -26,28 +45,10 @@ void print_array(uint8_t* arr, int len)
 	std::cout << std::endl;
 }
 
-void add64(uint8_t* block)
-{
-	int internal = 0;
-
-	for (int i = 7; i >= 0; i--)
-	{
-		if (i == 7)
-		{
-			internal = block[i] + 0x40;
-		}
-		else
-		{
-			internal = block[i] + (internal >> 8);
-		}
-		block[i] = internal & 0xff;
-	}
-}
-
 int main()
 {
 	HashFunctionMora hf(8, 4);
-	diamond_structure(4, hf);	
+	diamond_structure(3, hf);	
 
 	/*uint8_t messagef[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 	uint8_t message0[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -72,18 +73,57 @@ int main()
 
 	std::cout << key << std::endl;*/
 
-	std::vector<uint8_t*> gg;
-	/*generate_blocks(gg, 4, 8);
+	/*std::vector<uint8_t*> gg;
+	generate_blocks(gg, 4, 8);
 	for (auto a : gg)
 	{
 		print_array(a, 8);
-	}*/
+	}
 
 	uint8_t* g = new uint8_t[8];
 	gg.push_back(g);
 	for (auto& a : gg)
 		if (a == g)
-			std::cout << "ha" << std::endl;
+			std::cout << "ha" << std::endl;*/
+
+	/*uint8_t* a = new uint8_t[4];
+	for (int i = 0; i < 4; i++) {
+		a[i] = i;
+		std::cout << (int)a[i] << std::endl;
+	}
+	std::cout << std::endl;
+	std::vector<uint8_t*> vec;
+	vec.push_back(a);
+	for (int i = 0; i < 4; i++)
+		std::cout << (int)vec.at(0)[i] << std::endl;
+	std::cout << std::endl;
+	uint8_t* b = vec.at(0);
+	delete[] b;
+	for (int i = 0; i < 4; i++)
+		std::cout << (int)vec.at(0)[i] << std::endl;
+	std::cout << std::endl;
+	vec.clear();
+	for (int i = 0; i < 4; i++)
+		std::cout << (int)a[i] << std::endl;*/
+	
+	/*std::vector<std::vector<int>> vec1;
+	std::vector<int> vec2;
+	vec2.push_back(4);
+	vec2.push_back(6);
+
+	vec1.push_back(vec2);
+	std::cout << vec1.at(0).at(0) << ", " << vec1.at(0).at(1) << std::endl;
+	vec2.clear();
+	std::cout << vec1.at(0).at(0) << ", " << vec1.at(0).at(1) << std::endl;*/
+
+
+	/*time_t t = std::time(nullptr);
+	struct tm timeinfo;
+	localtime_s(&timeinfo, &t);
+	
+	std::stringstream textStream;
+	textStream << std::put_time(&timeinfo, "%d-%m-%Y-%H-%M-%S.txt");
+	std::cout << textStream.str() << std::endl;*/
 }
 
 void diamond_structure(int d, HashFunctionMora& hf)
@@ -116,6 +156,7 @@ void diamond_structure(int d, HashFunctionMora& hf)
 	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>> H;
 	std::vector<uint8_t*> M1;
 	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>> H1;
+	std::vector<std::pair<std::string, std::string>> B_in_jump;
 
 	uint8_t* N = new uint8_t[n];
 	std::fill_n(N, n, 0);
@@ -124,7 +165,6 @@ void diamond_structure(int d, HashFunctionMora& hf)
 	{
 		std::cout << "jump: " << jump << std::endl;
 
-		std::vector<std::pair<std::string, std::string>> B_in_jump;
 		unsigned long m_cardinality = (unsigned long)pow(2, ((8 * n - jump) / 2) - 1);
 		generate_blocks(M, m_cardinality, n);				std::cout << "card M: " << M.size() << std::endl;
 		calculate_H(H, A, M, hf, N);						std::cout << "card H: " << H.size() << std::endl;
@@ -160,8 +200,8 @@ void diamond_structure(int d, HashFunctionMora& hf)
 						tmp_A.push_back(string_to_arr(hash_res));
 						uint8_t* h1 = h.second.first;
 						uint8_t* h2 = collision.first;
-						B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(h.second.second, n)));
-						B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(collision.second, n)));
+						B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(h.second.second, 8)));
+						B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(collision.second, 8)));
 						A.erase(std::remove(A.begin(), A.end(), h1), A.end());
 						delete[] h1;
 						A.erase(std::remove(A.begin(), A.end(), h2), A.end());
@@ -170,7 +210,10 @@ void diamond_structure(int d, HashFunctionMora& hf)
 						M1.clear();
 						H1.clear();
 						H.clear();
-						calculate_H(H, A, M, hf, N);
+						if (phase != 2)
+						{
+							calculate_H(H, A, M, hf, N);
+						}
 
 						break;
 					}
@@ -182,17 +225,63 @@ void diamond_structure(int d, HashFunctionMora& hf)
 		}
 
 		// обработка последней фазы
+		generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), n);
+		process_last_phase(A, M, H, B_in_jump, tmp_A, hf, N); // A пустое после этого // B_in_jump добавл€етс€ последн€€ коллизи€
 
 		// M освободить (с очисткой пам€ти всех массивов)
-		// H освободить (с очисткой пам€ти всех массивов)
+		// H освободить
+		H.clear();
+		for (auto& m : M)
+		{
+			delete[] m;
+		}
+		M.clear();
+
+		// B_in_jump добавить в B
+		// B_in_jump.clear
+		// ¬ A добавить tmp_A. «атем tmp_A.clear();
+		// N прибавить 64
+		B.push_back(B_in_jump);
+		B_in_jump.clear();
+		for (auto& h : tmp_A)
+		{
+			A.push_back(h);
+		}
+		tmp_A.clear();
+		add64(N);
 	}
 
 	// обработка последнего джампа
+	generate_blocks(M, (size_t)pow(2, (8 * n) / 2), n);
+	process_last_phase(A, M, H, B_in_jump, tmp_A, hf, N);
+	B.push_back(B_in_jump);
+	write_result_to_file(B);// всЄ
+
+	for (auto& h : tmp_A)
+	{
+		delete[] h;
+	}
+	for (auto& m : M)
+	{
+		delete[] m;
+	}
+
+	tmp_A.clear();
+	B.clear();
+	M.clear();
+	H.clear();
+	B_in_jump.clear();
+	delete[] N;
 }
 
-void generate_blocks(std::vector <uint8_t*>& res, unsigned long count, int block_length)
+void generate_blocks(std::vector<uint8_t*>& res, size_t count, int block_length)
 {
-	for (size_t i = 0; i < count; i++)
+	generate_blocks(res, 0, count, block_length);
+}
+
+void generate_blocks(std::vector<uint8_t*>& res, size_t init_count, size_t count, int block_length)
+{
+	for (size_t i = init_count; i < count; i++)
 	{
 		uint8_t* block = generate_rand_block(block_length, res);
 		res.push_back(block);
@@ -268,7 +357,7 @@ std::string arr_to_string(uint8_t* arr, int len)
 
 uint8_t* string_to_arr(std::string str)
 {
-	int len = str.length();
+	size_t len = str.length();
 	uint8_t* res = new uint8_t[len];
 
 	for (size_t i = 0; i < len; i++)
@@ -278,7 +367,7 @@ uint8_t* string_to_arr(std::string str)
 	return res;
 }
 
-void calculate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, unsigned long count, int len)
+void calculate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, size_t count, int len)
 {
 	for (size_t i = 0; i < count; i++)
 	{
@@ -316,4 +405,102 @@ uint8_t* generate_rand_distinct_block(std::vector<uint8_t*>& vec1, std::vector<u
 			return block;
 		}
 	}
+}
+
+void process_last_phase(std::vector<uint8_t*>& A,
+	std::vector<uint8_t*>& M,
+	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& H,
+	std::vector<std::pair<std::string, std::string>>& B_in_jump,
+	std::vector<uint8_t*>& tmp_A,
+	HashFunctionMora& hf,
+	uint8_t* N)
+{
+	int n = hf.get_HASH_LEN();
+	std::vector<uint8_t*> A1;
+	A1.push_back(A.at(0));
+	
+	calculate_H(H, A1, M, hf, N);
+	uint8_t* h2 = A.at(1);
+	for (auto& m : M)
+	{
+		uint8_t* hash = new uint8_t[n];
+		memcpy(hash, h2, n);
+		hf.gN(hash, m, N);
+
+		std::pair<uint8_t*, uint8_t*> collision;
+		try {
+			collision = H.at(arr_to_string(hash, n));
+
+			tmp_A.push_back(hash);
+			B_in_jump.push_back(std::make_pair(arr_to_string(collision.first, n), arr_to_string(collision.second, 8)));
+			B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m, 8)));
+			delete[] h2;
+			delete[] A1.at(0);
+			A1.clear();
+
+			break;
+		}
+		catch(std::out_of_range ex) {
+			continue;
+		}
+	}
+}
+
+void add64(uint8_t* block)
+{
+	int internal = 0;
+
+	for (int i = 7; i >= 0; i--)
+	{
+		if (i == 7)
+		{
+			internal = block[i] + 0x40;
+		}
+		else
+		{
+			internal = block[i] + (internal >> 8);
+		}
+		block[i] = internal & 0xff;
+	}
+}
+
+void write_result_to_file(std::vector<std::vector<std::pair<std::string, std::string>>>& B)
+{
+	time_t t = std::time(nullptr);
+	struct tm time_info;
+	localtime_s(&time_info, &t);
+	std::stringstream text_stream;
+	text_stream << std::put_time(&time_info, "%d-%m-%Y-%H-%M-%S.txt");
+
+	std::ofstream file;
+	file.open(text_stream.str());
+	size_t jump = B.size();
+	for (auto& vec : B)
+	{
+		file << "jump є" << jump << ":" << std::endl << std::endl;
+		int num = 1;
+		for (auto& pair : vec)
+		{
+			auto h = pair.first;
+			auto m = pair.second;
+			file << "(h" << num << ", x" << num << "): (" << arr_to_hexstring(string_to_arr(h), h.length()) << ", " << arr_to_hexstring(string_to_arr(m), m.length()) << ")" << std::endl;
+			num++;
+		}
+		jump--;
+	}
+	
+	file.close();
+}
+
+std::string arr_to_hexstring(uint8_t* arr, size_t len)
+{
+	std::stringstream ss;
+	ss << std::hex;
+
+	for (int i = 0; i < len; i++)
+	{
+		ss << std::setw(2) << std::setfill('0') << (int)arr[i];
+	}
+
+	return ss.str();
 }
