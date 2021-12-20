@@ -21,7 +21,7 @@ void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*,
 	uint8_t* N);
 std::string arr_to_string(uint8_t* arr, int len);
 uint8_t* string_to_arr(std::string str);
-void calculate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, size_t count, int len);
+void generate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, size_t count, int len);
 uint8_t* generate_rand_distinct_block(std::vector<uint8_t*>& vec1, std::vector<uint8_t*>& vec2, int len);
 void process_last_phase(std::vector<uint8_t*>& A,
 	std::vector<uint8_t*>& M,
@@ -29,7 +29,8 @@ void process_last_phase(std::vector<uint8_t*>& A,
 	std::vector<std::pair<std::string, std::string>>& B_in_jump,
 	std::vector<uint8_t*>& tmp_A,
 	HashFunctionMora& hf,
-	uint8_t* N);
+	uint8_t* N,
+	int MESSAGE_LEN);
 void add64(uint8_t* block);
 void write_result_to_file(std::vector<std::vector<std::pair<std::string, std::string>>>& B);
 std::string arr_to_hexstring(uint8_t* arr, size_t len);
@@ -124,11 +125,23 @@ int main()
 	std::stringstream textStream;
 	textStream << std::put_time(&timeinfo, "%d-%m-%Y-%H-%M-%S.txt");
 	std::cout << textStream.str() << std::endl;*/
+
+	/*uint8_t* N = new uint8_t[8];
+	std::fill_n(N, 8, 0);
+	uint8_t h1[4] = { 0xdc, 0x3f, 0xbd, 0x24};
+	uint8_t m1[8] = { 0x6b, 0xe0, 0x8c, 0x44, 0x97, 0xf5, 0xaa, 0x47 };
+	uint8_t h2[4] = { 0x10, 0xea, 0x53, 0x7b };
+	uint8_t m2[8] = { 0x3a, 0xbc, 0x7f, 0xbe, 0xf0, 0x41, 0x35, 0x97 };
+	hf.gN(h1, m1, N);
+	hf.gN(h2, m2, N);
+	std::cout << arr_to_hexstring(h1, 4) << std::endl;
+	std::cout << arr_to_hexstring(h2, 4) << std::endl;*/
 }
 
 void diamond_structure(int d, HashFunctionMora& hf)
 {
-	int n = hf.get_HASH_LEN();
+	const int n = hf.get_HASH_LEN();
+	const int MESSAGE_LEN = 8;
 
 	if (d <= 1 || d >= n * 8 / 2)
 		return;
@@ -158,15 +171,16 @@ void diamond_structure(int d, HashFunctionMora& hf)
 	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>> H1;
 	std::vector<std::pair<std::string, std::string>> B_in_jump;
 
-	uint8_t* N = new uint8_t[n];
-	std::fill_n(N, n, 0);
+	uint8_t* N = new uint8_t[MESSAGE_LEN];
+	std::fill_n(N, MESSAGE_LEN, 0);
+	bool collision_found = false;
 
 	for (size_t jump = d; jump >= 2; jump--)
 	{
 		std::cout << "jump: " << jump << std::endl;
 
 		unsigned long m_cardinality = (unsigned long)pow(2, ((8 * n - jump) / 2) - 1);
-		generate_blocks(M, m_cardinality, n);				std::cout << "card M: " << M.size() << std::endl;
+		generate_blocks(M, m_cardinality, MESSAGE_LEN);		std::cout << "card M: " << M.size() << std::endl;
 		calculate_H(H, A, M, hf, N);						std::cout << "card H: " << H.size() << std::endl;
 
 		for (size_t phase = jump; phase >= 2; phase--)
@@ -179,15 +193,16 @@ void diamond_structure(int d, HashFunctionMora& hf)
 				std::cout << "  step: " << step << std::endl;
 
 				unsigned long m1_cardinality = (unsigned long)std::ceil(pow(2, (8 * n - phase) / 2 + 1) / (pow(2, phase) - 2 * step));
-				calculate_distinct_M1(M1, M, m1_cardinality, n);				std::cout << "card M1: " << M1.size() << std::endl;
-				calculate_H(H1, A, M1, hf, N);									std::cout << "card H1: " << H1.size() << std::endl;
+				generate_distinct_M1(M1, M, m1_cardinality, MESSAGE_LEN);		std::cout << "   card M1: " << M1.size() << std::endl;
+				calculate_H(H1, A, M1, hf, N);									std::cout << "   card H1: " << H1.size() << std::endl;
 
 				for (auto& h : H)
 				{
 					std::string hash_res = h.first;
 					std::pair<uint8_t*, uint8_t*> collision;
 					try {
-						collision = H1.at(hash_res);
+						collision = H1.at(hash_res);																		std::cout << "    collision found" << std::endl;
+						collision_found = true;
 						// в tmp_A положить hash_res.to_arr (выделяем память)
 						// в B_in_jump положить h.second, collision
 						// удалить из A h.second.first, collision.first (освободить эту память)
@@ -196,23 +211,23 @@ void diamond_structure(int d, HashFunctionMora& hf)
 						// H освободить 
 						// H заполнить с новыми A и M
 						// H1 освободить
-						
+
 						tmp_A.push_back(string_to_arr(hash_res));
-						uint8_t* h1 = h.second.first;
-						uint8_t* h2 = collision.first;
-						B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(h.second.second, 8)));
-						B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(collision.second, 8)));
+						uint8_t* h1 = h.second.first;																		std::cout << "    h1: " << arr_to_hexstring(h1, n) << ", m1: " << arr_to_hexstring(h.second.second, 8) << std::endl;
+						uint8_t* h2 = collision.first;																		std::cout << "    h2: " << arr_to_hexstring(h2, n) << ", m2: " << arr_to_hexstring(collision.second, 8) << std::endl;
+						B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(h.second.second, MESSAGE_LEN)));
+						B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(collision.second, MESSAGE_LEN)));
 						A.erase(std::remove(A.begin(), A.end(), h1), A.end());
 						delete[] h1;
-						A.erase(std::remove(A.begin(), A.end(), h2), A.end());
+						A.erase(std::remove(A.begin(), A.end(), h2), A.end());												std::cout << "    card A: " << A.size() << std::endl;
 						delete[] h2;
-						M.insert(M.end(), M1.begin(), M1.end());
+						M.insert(M.end(), M1.begin(), M1.end());															std::cout << "    card M: " << M.size() << std::endl;
 						M1.clear();
 						H1.clear();
 						H.clear();
 						if (phase != 2)
 						{
-							calculate_H(H, A, M, hf, N);
+							calculate_H(H, A, M, hf, N);																	std::cout << "    card H: " << H.size() << std::endl;
 						}
 
 						break;
@@ -221,12 +236,36 @@ void diamond_structure(int d, HashFunctionMora& hf)
 						continue;
 					}
 				}
+				if (!collision_found)
+				{
+					step--; // остаёмся на том же шаге если коллизия не найдена
+					H1.clear();
+					for (auto& m : M1)
+					{
+						delete[] m;
+					}
+					M1.clear();
+				}
+				collision_found = false;
 			}
 		}
 
-		// обработка последней фазы
-		generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), n);
-		process_last_phase(A, M, H, B_in_jump, tmp_A, hf, N); // A пустое после этого // B_in_jump добавляется последняя коллизия
+		// обработка последней фазы		
+		std::cout << " phase: 1" << std::endl;
+		while (A.size())
+		{
+			generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), MESSAGE_LEN);							std::cout << "  card M: " << M.size() << std::endl;
+			process_last_phase(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN); // A пустое после при нахождении коллизии // B_in_jump добавляется последняя коллизия
+			if (A.size())
+			{
+				for (auto& m : M)
+				{
+					delete[] m;
+				}
+				M.clear();
+				H.clear();
+			}
+		}
 
 		// M освободить (с очисткой памяти всех массивов)
 		// H освободить
@@ -252,26 +291,23 @@ void diamond_structure(int d, HashFunctionMora& hf)
 	}
 
 	// обработка последнего джампа
-	generate_blocks(M, (size_t)pow(2, (8 * n) / 2), n);
-	process_last_phase(A, M, H, B_in_jump, tmp_A, hf, N);
+	std::cout << "jump: 1" << std::endl;
+	while (A.size())
+	{
+		generate_blocks(M, (size_t)pow(2, (8 * n) / 2), MESSAGE_LEN);										std::cout << " card M: " << M.size() << std::endl;
+		process_last_phase(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
+		if (A.size())
+		{
+			for (auto& m : M)
+			{
+				delete[] m;
+			}
+			M.clear();
+			H.clear();
+		}
+	}
 	B.push_back(B_in_jump);
-	write_result_to_file(B);// всё
-
-	for (auto& h : tmp_A)
-	{
-		delete[] h;
-	}
-	for (auto& m : M)
-	{
-		delete[] m;
-	}
-
-	tmp_A.clear();
-	B.clear();
-	M.clear();
-	H.clear();
-	B_in_jump.clear();
-	delete[] N;
+	write_result_to_file(B);
 }
 
 void generate_blocks(std::vector<uint8_t*>& res, size_t count, int block_length)
@@ -367,7 +403,7 @@ uint8_t* string_to_arr(std::string str)
 	return res;
 }
 
-void calculate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, size_t count, int len)
+void generate_distinct_M1(std::vector<uint8_t*>& res, std::vector<uint8_t*>& already_exist, size_t count, int len)
 {
 	for (size_t i = 0; i < count; i++)
 	{
@@ -413,7 +449,8 @@ void process_last_phase(std::vector<uint8_t*>& A,
 	std::vector<std::pair<std::string, std::string>>& B_in_jump,
 	std::vector<uint8_t*>& tmp_A,
 	HashFunctionMora& hf,
-	uint8_t* N)
+	uint8_t* N,
+	int MESSAGE_LEN)
 {
 	int n = hf.get_HASH_LEN();
 	std::vector<uint8_t*> A1;
@@ -429,12 +466,13 @@ void process_last_phase(std::vector<uint8_t*>& A,
 
 		std::pair<uint8_t*, uint8_t*> collision;
 		try {
-			collision = H.at(arr_to_string(hash, n));
+			collision = H.at(arr_to_string(hash, n));																					std::cout << "    collision found" << std::endl;
 
 			tmp_A.push_back(hash);
-			B_in_jump.push_back(std::make_pair(arr_to_string(collision.first, n), arr_to_string(collision.second, 8)));
-			B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m, 8)));
+			B_in_jump.push_back(std::make_pair(arr_to_string(collision.first, n), arr_to_string(collision.second, MESSAGE_LEN)));		std::cout << "   h1: " << arr_to_hexstring(collision.first, n) << ", m1: " << arr_to_hexstring(collision.second, 8) << std::endl;
+			B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m, 8)));												std::cout << "   h2: " << arr_to_hexstring(h2, n) << ", m2: " << arr_to_hexstring(m, 8) << std::endl;
 			delete[] h2;
+			A.clear();
 			delete[] A1.at(0);
 			A1.clear();
 
@@ -470,14 +508,14 @@ void write_result_to_file(std::vector<std::vector<std::pair<std::string, std::st
 	struct tm time_info;
 	localtime_s(&time_info, &t);
 	std::stringstream text_stream;
-	text_stream << std::put_time(&time_info, "%d-%m-%Y-%H-%M-%S.txt");
+	text_stream << std::put_time(&time_info, "%d-%m-%Y-%H-%M-%S_collision.txt");
 
 	std::ofstream file;
 	file.open(text_stream.str());
 	size_t jump = B.size();
 	for (auto& vec : B)
 	{
-		file << "jump №" << jump << ":" << std::endl << std::endl;
+		file << "jump №" << jump << ":" << std::endl;
 		int num = 1;
 		for (auto& pair : vec)
 		{
@@ -486,6 +524,7 @@ void write_result_to_file(std::vector<std::vector<std::pair<std::string, std::st
 			file << "(h" << num << ", x" << num << "): (" << arr_to_hexstring(string_to_arr(h), h.length()) << ", " << arr_to_hexstring(string_to_arr(m), m.length()) << ")" << std::endl;
 			num++;
 		}
+		file << std::endl;
 		jump--;
 	}
 	
