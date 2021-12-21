@@ -59,7 +59,7 @@ void HashFunctionMora::hash(uint8_t* h, uint8_t* m)
 	add64(sigma, m, sigma);
 }
 
-void HashFunctionMora::gN(uint8_t* h, uint8_t* m, uint8_t* N)
+void HashFunctionMora::gN(uint8_t* h, const uint8_t* m, const uint8_t* N)
 {
 	uint8_t* K = new uint8_t[8];
 	uint8_t* tmp_res = new uint8_t[8];
@@ -171,7 +171,7 @@ void HashFunctionMora::L(uint8_t* block)
 	delete[] res;
 }
 
-void HashFunctionMora::E(uint8_t* K, uint8_t* m, uint8_t* res)
+void HashFunctionMora::E(uint8_t* K, const uint8_t* m, uint8_t* res)
 {
 	X(K, m, res);
 

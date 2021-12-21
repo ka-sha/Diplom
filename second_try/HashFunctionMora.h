@@ -25,7 +25,7 @@ public:
 	HashFunctionMora(int message_length, const int HASH_LEN);
 	~HashFunctionMora();
 	void calculate_hash(uint8_t* data, uint8_t* res);
-	void gN(uint8_t* h, uint8_t* m, uint8_t* N);
+	void gN(uint8_t* h, const uint8_t* m, const uint8_t* N);
 	void print_hash(const uint8_t* result);
 	int get_HASH_LEN();
 
@@ -43,7 +43,7 @@ private:
 	void P(uint8_t* block);
 	void L(uint8_t* block);
 	void get_key(uint8_t* K, int i);
-	void E(uint8_t* K, uint8_t* m, uint8_t* res);
+	void E(uint8_t* K, const uint8_t* m, uint8_t* res);
 	void hash(uint8_t* h, uint8_t* m);
 	void padding(uint8_t* m);
 	void int_to_arr(int index, uint8_t* message_int);
