@@ -7,6 +7,7 @@
 #include <vector>
 #include "HashFunctionMora.h"
 
+bool process_args(int* d, int* n, const int argc, char** argv);
 void diamond_structure(const int d, HashFunctionMora& hf);
 void generate_blocks(std::vector<uint8_t*>& res, const size_t count, const int block_length);
 void generate_blocks(std::vector<uint8_t*>& res, const size_t init_count, const size_t count, const int block_length);
@@ -45,10 +46,56 @@ std::string arr_to_hexstring(const uint8_t* arr, const size_t len);
 void log(const std::string message);
 
 
-int main()
+int main(int argc, char** argv)
 {
-	HashFunctionMora hf(8, 4);
-	diamond_structure(2, hf);	
+	int n = -1;
+	int d = -1;
+	
+	if (!process_args(&d, &n, argc, argv))
+	{
+		return -1;
+	}
+
+	HashFunctionMora hf(8, n);
+
+	log("Start diamond structure construction with d = " + std::to_string(d) + ", and n = " + std::to_string(n));
+	diamond_structure(d, hf);	
+}
+
+bool process_args(int* d, int* n, const int argc, char** argv)
+{
+	const std::string info_message = "Incorrect input. Need somethig like this:\nsecond_try.exe -d <integer> [-n <integer>]";
+
+	if ((argc != 3) && (argc != 5)) {
+		log(info_message);
+		return false;
+	}
+	if (argv[1][0] != '-' || argv[1][1] != 'd' || argv[1][2] != '\0')
+	{
+		log(info_message);
+		return false;
+	}
+	*d = atoi(argv[2]);
+	if (argc == 5)
+	{
+		if (argv[3][0] != '-' || argv[3][1] != 'n' || argv[3][2] != '\0')
+		{
+			log(info_message);
+			return false;
+		}
+		*n = atoi(argv[4]);
+	}
+	else
+	{
+		*n = 8;
+	}
+
+	if (*n <= 0 || *n > 8)
+	{
+		log(info_message);
+		return false;
+	}
+	return true;
 }
 
 void diamond_structure(const int d, HashFunctionMora& hf)
@@ -146,7 +193,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 						if (phase != 2)
 						{
 							calculate_H(H, A, M, hf, N);
-							log("    cardinality of H: " + H.size());
+							log("    cardinality of H: " + std::to_string(H.size()));
 						}
 
 						break;
