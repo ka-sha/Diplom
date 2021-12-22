@@ -1,3 +1,4 @@
+#include <chrono>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -39,10 +40,13 @@ void process_last_two_hashes(std::vector<uint8_t*>& A,
 	const uint8_t* N,
 	const int MESSAGE_LEN);
 void add64(uint8_t* block);
-void write_result_to_file(const std::vector<std::vector<std::pair<std::string, std::string>>>& B);
+void create_result_and_log_files(const std::vector<std::vector<std::pair<std::string, std::string>>>& B);
 std::string arr_to_hexstring(const uint8_t* arr, const size_t len);
-void log(const std::string message);
+void log(const std::string message, const bool to_log_file);
+void log_and_count_time_of_exec(const std::chrono::high_resolution_clock::time_point start, const std::string set_name, const size_t set_size);
 
+
+std::stringstream stringstream_with_logs;
 
 int main(int argc, char** argv)
 {
@@ -56,7 +60,7 @@ int main(int argc, char** argv)
 
 	HashFunctionMora hf(8, n);
 
-	log("Start diamond structure construction with d = " + std::to_string(d) + ", and n = " + std::to_string(n));
+	log("Start diamond structure construction with d = " + std::to_string(d) + ", and n = " + std::to_string(n), true);
 	diamond_structure(d, hf);	
 }
 
@@ -65,12 +69,12 @@ bool process_args(int* d, int* n, const int argc, char** argv)
 	const std::string info_message = "Incorrect input. Need somethig like this:\nsecond_try.exe -d <integer> [-n <integer>]";
 
 	if ((argc != 3) && (argc != 5)) {
-		log(info_message);
+		log(info_message, false);
 		return false;
 	}
 	if (argv[1][0] != '-' || argv[1][1] != 'd' || argv[1][2] != '\0')
 	{
-		log(info_message);
+		log(info_message, false);
 		return false;
 	}
 	*d = atoi(argv[2]);
@@ -78,7 +82,7 @@ bool process_args(int* d, int* n, const int argc, char** argv)
 	{
 		if (argv[3][0] != '-' || argv[3][1] != 'n' || argv[3][2] != '\0')
 		{
-			log(info_message);
+			log(info_message, false);
 			return false;
 		}
 		*n = atoi(argv[4]);
@@ -90,7 +94,7 @@ bool process_args(int* d, int* n, const int argc, char** argv)
 
 	if (*n <= 0 || *n > 8)
 	{
-		log(info_message);
+		log(info_message, false);
 		return false;
 	}
 	return true;
@@ -102,7 +106,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 
 	if (d <= 1 || d >= n * 8 / 2)
 	{
-		log("Incorrect input d = " + std::to_string(d) + ". d must be between 2 and " + std::to_string(n * 8 / 2));
+		log("Incorrect input d = " + std::to_string(d) + ". d must be between 2 and " + std::to_string(n * 8 / 2), false);
 		return;
 	}
 
@@ -136,28 +140,39 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 
 	for (size_t jump = d; jump >= 2; jump--)
 	{
-		log("jump: " + std::to_string(jump));
+		log("jump: " + std::to_string(jump), true);
 
-		unsigned long m_cardinality = (unsigned long)pow(2, ((8 * n - jump) / 2) - 1);
+		unsigned long m_cardinality = (unsigned long)pow(2, ((8 * static_cast<unsigned long long>(n) - jump) / 2) - 1);
+		log("Generating set M ...", false);
+		auto start = std::chrono::high_resolution_clock::now();
 		generate_blocks(M, m_cardinality, MESSAGE_LEN, false);
-		log("cardinality of M: " + std::to_string(M.size()));
-		calculate_H(H, A, M, hf, N);	
-		log("cardinality of H: " + std::to_string(H.size()));
+		log_and_count_time_of_exec(start, "M", M.size());
+
+		log("Generating set H ...", false);
+		start = std::chrono::high_resolution_clock::now();
+		calculate_H(H, A, M, hf, N);
+		log_and_count_time_of_exec(start, "H", H.size());
 
 		for (size_t phase = jump; phase >= 2; phase--)
 		{
-			log(" phase: " + std::to_string(phase));
+			log(" phase: " + std::to_string(phase), true);
 
 			const size_t max_step = (size_t)pow(2, phase - 2);
 			for (size_t step = 0; step < max_step; step++)
 			{
-				log("  step: " + std::to_string(step));
+				log("  step: " + std::to_string(step), true);
 
-				const unsigned long m1_cardinality = (unsigned long)std::ceil(pow(2, (8 * n - phase) / 2 + 1) / (pow(2, phase) - 2 * step));
+				const unsigned long m1_cardinality = 
+					(unsigned long)std::ceil(pow(2, (8 * static_cast<unsigned long long>(n) - phase) / 2 + 1) / (pow(2, phase) - 2 * step));
+				log("Generating set M1 ...", false);
+				auto start = std::chrono::high_resolution_clock::now();
 				generate_blocks(M1, m1_cardinality, MESSAGE_LEN, false);
-				log("   card M1: " + std::to_string(M1.size()));
+				log_and_count_time_of_exec(start, "M1", M1.size());
+
+				log("Generating set H1 ...", false);
+				start = std::chrono::high_resolution_clock::now();
 				calculate_H(H1, A, M1, hf, N);								
-				log("   card H1: " + std::to_string(H1.size()));
+				log_and_count_time_of_exec(start, "H1", H1.size());
 
 				for (auto& h : H)
 				{
@@ -173,31 +188,33 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 							continue;
 						}
 
-						log("    collision found");
+						log("Collision found", true);
 						collision_found = true;
 
 						tmp_A.push_back(string_to_arr(hash_res));
 						B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(m1, MESSAGE_LEN)));
 						B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m2, MESSAGE_LEN)));
 
-						log("    h1: " + arr_to_hexstring(h1, n) + ", m1: " + arr_to_hexstring(m1, MESSAGE_LEN));
-						log("    h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m2, MESSAGE_LEN));
+						log("h1: " + arr_to_hexstring(h1, n) + ", m1: " + arr_to_hexstring(m1, MESSAGE_LEN), true);
+						log("h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m2, MESSAGE_LEN), true);
 
 						A.erase(std::remove(A.begin(), A.end(), h1), A.end());
 						delete[] h1;
 						A.erase(std::remove(A.begin(), A.end(), h2), A.end());
 						delete[] h2;
-						log("    cardinality of A: " + std::to_string(A.size()));
+						log("Cardinality of A: " + std::to_string(A.size()), true);
 
 						M.insert(M.end(), M1.begin(), M1.end());
-						log("    cardinality of M: " + std::to_string(M.size()));
+						log("Cardinality of M after union with M1: " + std::to_string(M.size()), true);
 						M1.clear();
 						H1.clear();
 						H.clear();
 						if (phase != 2)
 						{
+							log("Recalc of set H ...", false);
+							start = std::chrono::high_resolution_clock::now();
 							calculate_H(H, A, M, hf, N);
-							log("    cardinality of H: " + std::to_string(H.size()));
+							log_and_count_time_of_exec(start, "H", H.size());
 						}
 
 						break;
@@ -216,7 +233,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 			}
 		}
 
-		log(" phase: 1");
+		log(" phase: 1", true);
 		process_last_two_hashes_in_jump(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
 
 		clear_vec(M);
@@ -232,10 +249,10 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 		add64(N);
 	}
 
-	log("jump: 1");
+	log("jump: 1", true);
 	process_last_two_hashes_in_jump(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
 	B.push_back(B_in_jump);
-	write_result_to_file(B);
+	create_result_and_log_files(B);
 
 	clear_vec(M);
 	clear_vec(tmp_A);
@@ -364,8 +381,10 @@ void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 
 	while (A.size())
 	{
+		log("Generating set M ...", false);
+		auto start = std::chrono::high_resolution_clock::now();
 		generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), MESSAGE_LEN, false);
-		log("  cardinality of M: " + std::to_string(M.size()));
+		log_and_count_time_of_exec(start, "M", M.size());
 		process_last_two_hashes(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN); // После выполнения, при нахождении коллизии, A - пустое,
 																		   // В B_in_jump добавляется последняя коллизия в джампе
 		if (A.size())
@@ -389,7 +408,10 @@ void process_last_two_hashes(std::vector<uint8_t*>& A,
 	std::vector<uint8_t*> A1;
 	A1.push_back(A.at(0));
 	
+	log("Generating set H ...", false);
+	auto start = std::chrono::high_resolution_clock::now();
 	calculate_H(H, A1, M, hf, N);
+	log_and_count_time_of_exec(start, "H", H.size());
 	uint8_t* h2 = A.at(1);
 	for (const auto& m : M)
 	{
@@ -405,14 +427,14 @@ void process_last_two_hashes(std::vector<uint8_t*>& A,
 				continue;
 			}
 
-			log("    collision found");
+			log("Collision found", true);
 
 			tmp_A.push_back(hash);
 			B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(collision.second, MESSAGE_LEN)));
 			B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m, 8)));
 
-			log("   h1: " + arr_to_hexstring(collision.first, n) + ", m1: " + arr_to_hexstring(collision.second, 8));
-			log("   h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m, 8));
+			log("h1: " + arr_to_hexstring(collision.first, n) + ", m1: " + arr_to_hexstring(collision.second, 8), true);
+			log("h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m, 8), true);
 
 			delete[] h2;
 			A.clear();
@@ -445,34 +467,41 @@ void add64(uint8_t* block)
 	}
 }
 
-void write_result_to_file(const std::vector<std::vector<std::pair<std::string, std::string>>>& B)
+void create_result_and_log_files(const std::vector<std::vector<std::pair<std::string, std::string>>>& B)
 {
 	time_t t = std::time(nullptr);
 	struct tm time_info;
 	localtime_s(&time_info, &t);
-	std::stringstream text_stream;
-	text_stream << std::put_time(&time_info, "%d-%m-%Y-%H-%M-%S_collision.txt");
+	std::stringstream collision_file_name;
+	collision_file_name << std::put_time(&time_info, "%d-%m-%Y-%H-%M-%S_collision.txt");
 
-	std::ofstream file;
-	file.open(text_stream.str());
+	std::ofstream collisions_file;
+	collisions_file.open(collision_file_name.str());
 	size_t jump = B.size();
 	for (const auto& vec : B)
 	{
-		file << "jump №" << jump << ":" << std::endl;
+		collisions_file << "jump №" << jump << ":" << "\n";
 		int num = 1;
 		for (const auto& pair : vec)
 		{
 			auto h = pair.first;
 			auto m = pair.second;
-			file << "(h" << num << ", x" << num << "): (" << arr_to_hexstring(string_to_arr(h), h.length()) << ", "
-				<< arr_to_hexstring(string_to_arr(m), m.length()) << ")" << std::endl;
+			collisions_file << "(h" << num << ", x" << num << "): (" << arr_to_hexstring(string_to_arr(h), h.length()) << ", "
+				<< arr_to_hexstring(string_to_arr(m), m.length()) << ")" << "\n";
 			num++;
 		}
-		file << std::endl;
+		collisions_file << "\n";
 		jump--;
 	}
-	
-	file.close();
+	collisions_file.close();
+
+	std::stringstream log_file_name;
+	log_file_name << std::put_time(&time_info, "%d-%m-%Y-%H-%M-%S_log.txt");
+	std::ofstream log_file;
+	log_file.open(log_file_name.str());
+
+	log_file << stringstream_with_logs.str();
+	log_file.close();
 }
 
 std::string arr_to_hexstring(const uint8_t* arr, const size_t len)
@@ -488,7 +517,19 @@ std::string arr_to_hexstring(const uint8_t* arr, const size_t len)
 	return ss.str();
 }
 
-void log(const std::string message)
+void log(const std::string message, const bool to_log_file)
 {
-	std::cout << message << std::endl;
+	std::cout << message << "\n";
+	if (to_log_file)
+	{
+		stringstream_with_logs << message << "\n";
+	}
+}
+
+void log_and_count_time_of_exec(const std::chrono::high_resolution_clock::time_point start, const std::string set_name, const size_t set_size)
+{
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	log("Set " + set_name + " of cardinality " + std::to_string(set_size) +
+		" generated in " + std::to_string(duration.count()) + " microseconds", true);
 }
