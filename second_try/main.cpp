@@ -9,9 +9,9 @@
 
 bool process_args(int* d, int* n, const int argc, char** argv);
 void diamond_structure(const int d, HashFunctionMora& hf);
-void generate_blocks(std::vector<uint8_t*>& res, const size_t count, const int block_length);
-void generate_blocks(std::vector<uint8_t*>& res, const size_t init_count, const size_t count, const int block_length);
-uint8_t* generate_rand_block(const std::vector<uint8_t*>& vec, const int len);
+void generate_blocks(std::vector<uint8_t*>& res, const size_t count, const int block_length, const bool distinct);
+void generate_blocks(std::vector<uint8_t*>& res, const size_t init_count, const size_t count, const int block_length, const bool distinct);
+uint8_t* generate_rand_block(const std::vector<uint8_t*>& vec, const int len, const bool distinct);
 void fill_arr_rand(uint8_t* res, const int len);
 bool equal_array(const uint8_t* a, const uint8_t* b, const int len);
 void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res,
@@ -21,8 +21,6 @@ void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>&
 	const uint8_t* N);
 std::string arr_to_string(const uint8_t* arr, const int len);
 uint8_t* string_to_arr(const std::string str);
-void generate_distinct_M1(std::vector<uint8_t*>& res, const std::vector<uint8_t*>& already_exist, const size_t count, const int len);
-uint8_t* generate_rand_distinct_block(const std::vector<uint8_t*>& vec1, const std::vector<uint8_t*>& vec2, const int len);
 void clear_vec(std::vector<uint8_t*>& vec);
 void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 	std::vector<uint8_t*>& M,
@@ -32,7 +30,7 @@ void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 	HashFunctionMora& hf,
 	const uint8_t* N,
 	const int MESSAGE_LEN);
-void process_last_phase(std::vector<uint8_t*>& A,
+void process_last_two_hashes(std::vector<uint8_t*>& A,
 	const std::vector<uint8_t*>& M,
 	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& H,
 	std::vector<std::pair<std::string, std::string>>& B_in_jump,
@@ -129,7 +127,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 
 	const unsigned long init_hash_count = (unsigned long)pow(2, d);
 	srand((unsigned int)time(nullptr));
-	generate_blocks(A, init_hash_count, n);
+	generate_blocks(A, init_hash_count, n, true);
 
 	const int MESSAGE_LEN = 8;
 	uint8_t* N = new uint8_t[MESSAGE_LEN];
@@ -141,7 +139,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 		log("jump: " + std::to_string(jump));
 
 		unsigned long m_cardinality = (unsigned long)pow(2, ((8 * n - jump) / 2) - 1);
-		generate_blocks(M, m_cardinality, MESSAGE_LEN);
+		generate_blocks(M, m_cardinality, MESSAGE_LEN, false);
 		log("cardinality of M: " + std::to_string(M.size()));
 		calculate_H(H, A, M, hf, N);	
 		log("cardinality of H: " + std::to_string(H.size()));
@@ -156,7 +154,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 				log("  step: " + std::to_string(step));
 
 				const unsigned long m1_cardinality = (unsigned long)std::ceil(pow(2, (8 * n - phase) / 2 + 1) / (pow(2, phase) - 2 * step));
-				generate_distinct_M1(M1, M, m1_cardinality, MESSAGE_LEN);
+				generate_blocks(M1, m1_cardinality, MESSAGE_LEN, false);
 				log("   card M1: " + std::to_string(M1.size()));
 				calculate_H(H1, A, M1, hf, N);								
 				log("   card H1: " + std::to_string(H1.size()));
@@ -166,18 +164,24 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 					std::string hash_res = h.first;
 					try {
 						std::pair<uint8_t*, uint8_t*> collision = H1.at(hash_res); // Есть элемент - переходим к след строке, нет элемента - попадаем в catch блок
-						
+						uint8_t* h1 = h.second.first;
+						uint8_t* h2 = collision.first;
+						uint8_t* m1 = h.second.second;
+						uint8_t* m2 = collision.second;
+						if (equal_array(h1, h2, n) || equal_array(m1, m2, MESSAGE_LEN))
+						{
+							continue;
+						}
+
 						log("    collision found");
 						collision_found = true;
 
 						tmp_A.push_back(string_to_arr(hash_res));
-						uint8_t* h1 = h.second.first;
-						uint8_t* h2 = collision.first;
-						B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(h.second.second, MESSAGE_LEN)));
-						B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(collision.second, MESSAGE_LEN)));
+						B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(m1, MESSAGE_LEN)));
+						B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m2, MESSAGE_LEN)));
 
-						log("    h1: " + arr_to_hexstring(h1, n) + ", m1: " + arr_to_hexstring(h.second.second, 8));
-						log("    h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(collision.second, 8));
+						log("    h1: " + arr_to_hexstring(h1, n) + ", m1: " + arr_to_hexstring(m1, MESSAGE_LEN));
+						log("    h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m2, MESSAGE_LEN));
 
 						A.erase(std::remove(A.begin(), A.end(), h1), A.end());
 						delete[] h1;
@@ -237,26 +241,30 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 	clear_vec(tmp_A);
 }
 
-void generate_blocks(std::vector<uint8_t*>& res, const size_t count, const int block_length)
+void generate_blocks(std::vector<uint8_t*>& res, const size_t count, const int block_length, const bool distinct)
 {
-	generate_blocks(res, 0, count, block_length);
+	generate_blocks(res, 0, count, block_length, distinct);
 }
 
-void generate_blocks(std::vector<uint8_t*>& res, const size_t init_count, const size_t count, const int block_length)
+void generate_blocks(std::vector<uint8_t*>& res, const size_t init_count, const size_t count, const int block_length, const bool distinct)
 {
 	for (size_t i = init_count; i < count; i++)
 	{
-		uint8_t* block = generate_rand_block(res, block_length);
+		uint8_t* block = generate_rand_block(res, block_length, distinct);
 		res.push_back(block);
 	}
 }
 
-uint8_t* generate_rand_block(const std::vector<uint8_t*>& vec, const int len)
+uint8_t* generate_rand_block(const std::vector<uint8_t*>& vec, const int len, const bool distinct)
 {
 	uint8_t* block = new uint8_t[len];
-	while (true)
+	do
 	{
 		fill_arr_rand(block, len);
+		if (!distinct)
+		{
+			return block;
+		}
 		bool correct_block = true;
 		for (const auto& arr : vec)
 		{
@@ -270,7 +278,7 @@ uint8_t* generate_rand_block(const std::vector<uint8_t*>& vec, const int len)
 		{
 			return block;
 		}
-	}
+	} while (true);
 }
 
 void fill_arr_rand(uint8_t* res, const int len)
@@ -334,46 +342,6 @@ uint8_t* string_to_arr(const std::string str)
 	return res;
 }
 
-void generate_distinct_M1(std::vector<uint8_t*>& res, const std::vector<uint8_t*>& already_exist, const size_t count, const int len)
-{
-	for (size_t i = 0; i < count; i++)
-	{
-		uint8_t* block = generate_rand_distinct_block(res, already_exist, len);
-		res.push_back(block);
-	}
-}
-
-uint8_t* generate_rand_distinct_block(const std::vector<uint8_t*>& vec1, const std::vector<uint8_t*>& vec2, const int len)
-{
-	uint8_t* block = new uint8_t[len];
-	
-	while (true)
-	{
-		fill_arr_rand(block, len);
-		bool correct_block = true;
-		for (const auto& arr : vec1)
-		{
-			correct_block &= !equal_array(arr, block, len);
-			if (!correct_block)
-			{
-				break;
-			}
-		}
-		for (const auto& arr : vec2)
-		{
-			correct_block &= !equal_array(arr, block, len);
-			if (!correct_block)
-			{
-				break;
-			}
-		}
-		if (correct_block)
-		{
-			return block;
-		}
-	}
-}
-
 void clear_vec(std::vector<uint8_t*>& vec)
 {
 	for (auto& arr : vec)
@@ -396,9 +364,9 @@ void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 
 	while (A.size())
 	{
-		generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), MESSAGE_LEN);
+		generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), MESSAGE_LEN, false);
 		log("  cardinality of M: " + std::to_string(M.size()));
-		process_last_phase(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN); // После выполнения, при нахождении коллизии, A - пустое,
+		process_last_two_hashes(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN); // После выполнения, при нахождении коллизии, A - пустое,
 																		   // В B_in_jump добавляется последняя коллизия в джампе
 		if (A.size())
 		{
@@ -408,7 +376,7 @@ void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 	}
 }
 
-void process_last_phase(std::vector<uint8_t*>& A,
+void process_last_two_hashes(std::vector<uint8_t*>& A,
 	const std::vector<uint8_t*>& M,
 	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& H,
 	std::vector<std::pair<std::string, std::string>>& B_in_jump,
@@ -431,10 +399,16 @@ void process_last_phase(std::vector<uint8_t*>& A,
 
 		try {
 			std::pair<uint8_t*, uint8_t*> collision = H.at(arr_to_string(hash, n));
+			uint8_t* h1 = collision.first;
+			if (equal_array(h1, h2, n))
+			{
+				continue;
+			}
+
 			log("    collision found");
 
 			tmp_A.push_back(hash);
-			B_in_jump.push_back(std::make_pair(arr_to_string(collision.first, n), arr_to_string(collision.second, MESSAGE_LEN)));
+			B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(collision.second, MESSAGE_LEN)));
 			B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m, 8)));
 
 			log("   h1: " + arr_to_hexstring(collision.first, n) + ", m1: " + arr_to_hexstring(collision.second, 8));
