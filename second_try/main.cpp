@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -52,7 +54,7 @@ int main(int argc, char** argv)
 {
 	int n = -1;
 	int d = -1;
-	
+
 	if (!process_args(&d, &n, argc, argv))
 	{
 		return -1;
@@ -61,7 +63,7 @@ int main(int argc, char** argv)
 	HashFunctionMora hf(8, n);
 
 	log("Start diamond structure construction with d = " + std::to_string(d) + ", and n = " + std::to_string(n), true);
-	diamond_structure(d, hf);	
+	diamond_structure(d, hf);
 }
 
 bool process_args(int* d, int* n, const int argc, char** argv)
@@ -162,7 +164,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 			{
 				log("  step: " + std::to_string(step), true);
 
-				const unsigned long m1_cardinality = 
+				const unsigned long m1_cardinality =
 					(unsigned long)std::ceil(pow(2, (8 * static_cast<unsigned long long>(n) - phase) / 2 + 1) / (pow(2, phase) - 2 * step));
 				log("Generating set M1 ...", false);
 				auto start = std::chrono::high_resolution_clock::now();
@@ -171,7 +173,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 
 				log("Generating set H1 ...", false);
 				start = std::chrono::high_resolution_clock::now();
-				calculate_H(H1, A, M1, hf, N);								
+				calculate_H(H1, A, M1, hf, N);
 				log_and_count_time_of_exec(start, "H1", H1.size());
 
 				for (auto& h : H)
@@ -407,7 +409,7 @@ void process_last_two_hashes(std::vector<uint8_t*>& A,
 	const int n = hf.get_HASH_LEN();
 	std::vector<uint8_t*> A1;
 	A1.push_back(A.at(0));
-	
+
 	log("Generating set H ...", false);
 	auto start = std::chrono::high_resolution_clock::now();
 	calculate_H(H, A1, M, hf, N);
@@ -443,7 +445,7 @@ void process_last_two_hashes(std::vector<uint8_t*>& A,
 
 			break;
 		}
-		catch(std::out_of_range ex) {
+		catch (std::out_of_range ex) {
 			continue;
 		}
 	}
@@ -470,10 +472,9 @@ void add64(uint8_t* block)
 void create_result_and_log_files(const std::vector<std::vector<std::pair<std::string, std::string>>>& B)
 {
 	time_t t = std::time(nullptr);
-	struct tm time_info;
-	localtime_s(&time_info, &t);
+	struct tm* time_info = localtime(&t);
 	std::stringstream collision_file_name;
-	collision_file_name << std::put_time(&time_info, "%d-%m-%Y-%H-%M-%S_collision.txt");
+	collision_file_name << std::put_time(time_info, "%d-%m-%Y-%H-%M-%S_collision.txt");
 
 	std::ofstream collisions_file;
 	collisions_file.open(collision_file_name.str());
@@ -496,7 +497,7 @@ void create_result_and_log_files(const std::vector<std::vector<std::pair<std::st
 	collisions_file.close();
 
 	std::stringstream log_file_name;
-	log_file_name << std::put_time(&time_info, "%d-%m-%Y-%H-%M-%S_log.txt");
+	log_file_name << std::put_time(time_info, "%d-%m-%Y-%H-%M-%S_log.txt");
 	std::ofstream log_file;
 	log_file.open(log_file_name.str());
 

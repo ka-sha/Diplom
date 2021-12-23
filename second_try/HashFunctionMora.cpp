@@ -224,7 +224,7 @@ void HashFunctionMora::padding(uint8_t* m)
 	std::fill_n(res, 8, 0);
 	//message_len from 0 to 7
 	int i = 7 - message_len;
-	
+
 	res[i++] = 0x01;
 	for (int j = i; j < 8; j++)
 	{
@@ -236,7 +236,7 @@ void HashFunctionMora::padding(uint8_t* m)
 
 void HashFunctionMora::int_to_arr(int index, uint8_t* res)
 {
-	res[7] = (uint8_t) (2 ^ index);
+	res[7] = (uint8_t)(2 ^ index);
 }
 
 void HashFunctionMora::print_hash(const uint8_t* arr)
