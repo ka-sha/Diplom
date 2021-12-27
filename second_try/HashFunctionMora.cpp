@@ -1,5 +1,4 @@
-﻿#include <iostream>
-#include "HashFunctionMora.h"
+﻿#include "HashFunctionMora.h"
 
 HashFunctionMora::HashFunctionMora(int message_length)
 {

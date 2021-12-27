@@ -18,12 +18,15 @@
     <ClInclude Include="HashFunctionMora.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="diamond_structure.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="HashFunctionMora.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="diamond_structure.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>

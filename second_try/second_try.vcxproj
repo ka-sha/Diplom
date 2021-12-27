@@ -130,6 +130,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -140,9 +141,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="HashFunctionMora.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="diamond_structure.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="diamond_structure.h" />
     <ClInclude Include="HashFunctionMora.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
