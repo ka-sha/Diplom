@@ -1,6 +1,8 @@
 #include <iostream>
 #include <cstring>
 
+#pragma once
+
 static const uint8_t PI[16] = { 15, 9, 1, 7, 13, 12, 2, 8, 6, 5, 14, 3, 0, 11, 4, 10 };
 static const uint8_t TAU[16] = { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
 static const uint16_t A[16] = { 0x3a22, 0x8511, 0x4b99, 0x2cdd,
