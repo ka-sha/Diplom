@@ -140,12 +140,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="diamond_structure_utils.cpp" />
     <ClCompile Include="HashFunctionMora.cpp" />
     <ClCompile Include="diamond_structure.cpp" />
+    <ClCompile Include="HContainer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="diamond_structure.h" />
+    <ClInclude Include="diamond_structure_utils.h" />
     <ClInclude Include="HashFunctionMora.h" />
+    <ClInclude Include="HContainer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

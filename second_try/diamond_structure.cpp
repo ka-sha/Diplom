@@ -57,6 +57,7 @@ bool process_args(int* d, int* n, const int argc, char** argv)
 void diamond_structure(const int d, HashFunctionMora& hf)
 {
 	const int n = hf.get_HASH_LEN();
+	const int MESSAGE_LEN = 8;
 
 	if (d <= 1 || d >= n * 8 / 2)
 	{
@@ -75,11 +76,9 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 	std::vector<uint8_t*> M;
 	// Множество результатов работы функции сжатия со всеми хэшами их A и со всеми сообщениями из M,
 	// где: key - это результат функции сжатия приведённый к строке, value - пара (h,x), к которым применили функцию сжатия и получили key
-	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>> H;
+	HContainer hcontainer(n, MESSAGE_LEN);
 	// Аналогично M, но не пересекается с M. Выделяется память
 	std::vector<uint8_t*> M1;
-	// Аналогично H, но используются сообщения из множества M1
-	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>> H1;
 	// Пары (h, x), образующие коллизию, в пределах одного джампа
 	std::vector<std::pair<std::string, std::string>> B_in_jump;
 
@@ -87,7 +86,6 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 	srand((unsigned int)time(nullptr));
 	generate_blocks(A, init_hash_count, n, true);
 
-	const int MESSAGE_LEN = 8;
 	uint8_t* N = new uint8_t[MESSAGE_LEN];
 	std::fill_n(N, MESSAGE_LEN, 0);
 
@@ -103,8 +101,8 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 
 		log("Generating set H ...", false);
 		start = std::chrono::high_resolution_clock::now();
-		calculate_H(H, A, M, hf, N);
-		log_and_count_time_of_exec(start, "H", H.size());
+		hcontainer.calculate_H(A, M, hf, N);
+		log_and_count_time_of_exec(start, "H", hcontainer.size());
 
 		for (size_t phase = jump; phase >= 2; phase--)
 		{
@@ -118,70 +116,57 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 				{
 					log("  step: " + std::to_string(step), true);
 
-					const unsigned long m1_cardinality =
-						(unsigned long)std::ceil(pow(2, (8 * static_cast<unsigned long long>(n) - phase) / 2 + 1) / (pow(2, phase) - 2 * step));
+					const unsigned long long m1_cardinality =
+						(unsigned long long)std::ceil(pow(2, (8 * static_cast<unsigned long long>(n) - phase) / 2 + 1) / (pow(2, phase) - 2 * step));
 					log("Generating set M1 ...", false);
-					auto start = std::chrono::high_resolution_clock::now();
+					start = std::chrono::high_resolution_clock::now();
 					generate_blocks(M1, m1_cardinality, MESSAGE_LEN, false);
 					log_and_count_time_of_exec(start, "M1", M1.size());
 
-					log("Generating set H1 ...", false);
+					log("Searching for collision...", false);
 					start = std::chrono::high_resolution_clock::now();
-					calculate_H(H1, A, M1, hf, N);
-					log_and_count_time_of_exec(start, "H1", H1.size());
-
-					for (auto& h : H)
+					const auto* collision = hcontainer.get_collision(A, M1, hf, N);
+					if (collision != nullptr)
 					{
-						std::string hash_res = h.first;
-						try {
-							std::pair<uint8_t*, uint8_t*> collision = H1.at(hash_res); // Есть элемент - переходим к след строке, нет элемента - попадаем в catch блок
-							uint8_t* h1 = h.second.first;
-							uint8_t* h2 = collision.first;
-							uint8_t* m1 = h.second.second;
-							uint8_t* m2 = collision.second;
-							if (equal_array(h1, h2, n) || equal_array(m1, m2, MESSAGE_LEN))
-							{
-								continue;
-							}
+						log_and_count_time_of_collision_searching(start);
+						collision_found = true;
 
-							log("Collision found", true);
-							collision_found = true;
+						const auto p1 = std::get<0>(*collision);
+						const auto p2 = std::get<1>(*collision);
+						const uint8_t* h1 = p1.first;
+						const uint8_t* h2 = p2.first;
+						const uint8_t* m1 = p1.second;
+						const uint8_t* m2 = p2.second;
+						const std::string hash_res = std::get<2>(*collision);
 
-							tmp_A.push_back(string_to_arr(hash_res));
-							B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(m1, MESSAGE_LEN)));
-							B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m2, MESSAGE_LEN)));
+						tmp_A.push_back(string_to_arr(hash_res));
+						B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(m1, MESSAGE_LEN)));
+						B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m2, MESSAGE_LEN)));
 
-							log("h1: " + arr_to_hexstring(h1, n) + ", m1: " + arr_to_hexstring(m1, MESSAGE_LEN), true);
-							log("h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m2, MESSAGE_LEN), true);
+						log("h1: " + arr_to_hexstring(h1, n) + ", m1: " + arr_to_hexstring(m1, MESSAGE_LEN), true);
+						log("h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m2, MESSAGE_LEN), true);
 
-							A.erase(std::remove(A.begin(), A.end(), h1), A.end());
-							delete[] h1;
-							A.erase(std::remove(A.begin(), A.end(), h2), A.end());
-							delete[] h2;
-							log("Cardinality of A: " + std::to_string(A.size()), true);
+						A.erase(std::remove(A.begin(), A.end(), h1), A.end());
+						delete[] h1;
+						A.erase(std::remove(A.begin(), A.end(), h2), A.end());
+						delete[] h2;
+						log("Cardinality of A: " + std::to_string(A.size()), true);
 
-							M.insert(M.end(), M1.begin(), M1.end());
-							log("Cardinality of M after union with M1: " + std::to_string(M.size()), true);
-							M1.clear();
-							H1.clear();
-							H.clear();
-							if (phase != 2)
-							{
-								log("Recalc of set H ...", false);
-								start = std::chrono::high_resolution_clock::now();
-								calculate_H(H, A, M, hf, N);
-								log_and_count_time_of_exec(start, "H", H.size());
-							}
+						M.insert(M.end(), M1.begin(), M1.end());
+						log("Cardinality of M after union with M1: " + std::to_string(M.size()), true);
+						M1.clear();
+						hcontainer.clear();
 
-							break;
-						}
-						catch (std::out_of_range ex) {
-							continue;
+						if (phase != 2)
+						{
+							log("Recalc of set H ...", false);
+							start = std::chrono::high_resolution_clock::now();
+							hcontainer.calculate_H(A, M, hf, N);
+							log_and_count_time_of_exec(start, "H", hcontainer.size());
 						}
 					}
 					if (!collision_found)
 					{
-						H1.clear();
 						clear_vec(M1);
 					}
 				}
@@ -189,10 +174,10 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 		}
 
 		log(" phase: 1", true);
-		process_last_two_hashes_in_jump(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
+		process_last_two_hashes_in_jump(A, M, hcontainer, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
 
 		clear_vec(M);
-		H.clear();
+		hcontainer.clear();
 
 		B.push_back(B_in_jump);
 		B_in_jump.clear();
@@ -205,7 +190,7 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 	}
 
 	log("jump: 1", true);
-	process_last_two_hashes_in_jump(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
+	process_last_two_hashes_in_jump(A, M, hcontainer, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
 	B.push_back(B_in_jump);
 	create_result_and_log_files(B);
 
@@ -261,71 +246,9 @@ void fill_arr_rand(uint8_t* res, const int len)
 	}
 }
 
-bool equal_array(const uint8_t* a, const uint8_t* b, const int len)
-{
-	for (int i = 0; i < len; i++)
-	{
-		if (a[i] != b[i])
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-void calculate_H(std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& res,
-	const std::vector<uint8_t*>& A,
-	const std::vector<uint8_t*>& M,
-	HashFunctionMora& hf,
-	const uint8_t* N)
-{
-	const int n = hf.get_HASH_LEN();
-	for (const auto& hash : A)
-	{
-		for (const auto& m : M)
-		{
-			uint8_t* res_hash = new uint8_t[n];
-			memcpy(res_hash, hash, n);
-			hf.gN(res_hash, m, N);
-			res.insert(std::make_pair(arr_to_string(res_hash, n), std::make_pair(hash, m)));
-			delete[] res_hash;
-		}
-	}
-}
-
-std::string arr_to_string(const uint8_t* arr, const int len)
-{
-	std::ostringstream convert;
-	for (int i = 0; i < len; i++) {
-		convert << arr[i];
-	}
-	return convert.str();
-}
-
-uint8_t* string_to_arr(const std::string str)
-{
-	const size_t len = str.length();
-	uint8_t* res = new uint8_t[len];
-
-	for (size_t i = 0; i < len; i++)
-	{
-		res[i] = (uint8_t)str.at(i);
-	}
-	return res;
-}
-
-void clear_vec(std::vector<uint8_t*>& vec)
-{
-	for (auto& arr : vec)
-	{
-		delete[] arr;
-	}
-	vec.clear();
-}
-
 void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 	std::vector<uint8_t*>& M,
-	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& H,
+	HContainer& hcontainer,
 	std::vector<std::pair<std::string, std::string>>& B_in_jump,
 	std::vector<uint8_t*>& tmp_A,
 	HashFunctionMora& hf,
@@ -340,19 +263,19 @@ void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 		auto start = std::chrono::high_resolution_clock::now();
 		generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), MESSAGE_LEN, false);
 		log_and_count_time_of_exec(start, "M", M.size());
-		process_last_two_hashes(A, M, H, B_in_jump, tmp_A, hf, N, MESSAGE_LEN); // После выполнения, при нахождении коллизии, A - пустое,
+		process_last_two_hashes(A, M, hcontainer, B_in_jump, tmp_A, hf, N, MESSAGE_LEN); // После выполнения, при нахождении коллизии, A - пустое,
 																		   // В B_in_jump добавляется последняя коллизия в джампе
 		if (A.size())
 		{
 			clear_vec(M);
-			H.clear();
+			hcontainer.clear();
 		}
 	}
 }
 
 void process_last_two_hashes(std::vector<uint8_t*>& A,
 	const std::vector<uint8_t*>& M,
-	std::unordered_map<std::string, std::pair<uint8_t*, uint8_t*>>& H,
+	HContainer& hcontainer,
 	std::vector<std::pair<std::string, std::string>>& B_in_jump,
 	std::vector<uint8_t*>& tmp_A,
 	HashFunctionMora& hf,
@@ -365,42 +288,37 @@ void process_last_two_hashes(std::vector<uint8_t*>& A,
 	
 	log("Generating set H ...", false);
 	auto start = std::chrono::high_resolution_clock::now();
-	calculate_H(H, A1, M, hf, N);
-	log_and_count_time_of_exec(start, "H", H.size());
-	uint8_t* h2 = A.at(1);
-	for (const auto& m : M)
+	hcontainer.calculate_H(A1, M, hf, N);
+	log_and_count_time_of_exec(start, "H", hcontainer.size());
+	
+	std::vector<uint8_t*> A2;
+	A2.push_back(A.at(1));
+	log("Searching for collision...", false);
+	start = std::chrono::high_resolution_clock::now();
+	const auto collision = hcontainer.get_collision(A2, M, hf, N);
+	if (collision != nullptr)
 	{
-		uint8_t* hash = new uint8_t[n];
-		memcpy(hash, h2, n);
-		hf.gN(hash, m, N);
+		log_and_count_time_of_collision_searching(start);
+		const auto p1 = std::get<0>(*collision);
+		const auto p2 = std::get<1>(*collision);
+		const std::string hash_res = std::get<2>(*collision);
+		const uint8_t* h1 = p1.first;
+		const uint8_t* h2 = p2.first;
+		const uint8_t* m1 = p1.second;
+		const uint8_t* m2 = p2.second;
 
-		try {
-			std::pair<uint8_t*, uint8_t*> collision = H.at(arr_to_string(hash, n));
-			uint8_t* h1 = collision.first;
-			if (equal_array(h1, h2, n))
-			{
-				continue;
-			}
+		tmp_A.push_back(string_to_arr(hash_res));
+		B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(m1, MESSAGE_LEN)));
+		B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m2, MESSAGE_LEN)));
 
-			log("Collision found", true);
+		log("h1: " + arr_to_hexstring(h1, n) + ", m1: " + arr_to_hexstring(m1, 8), true);
+		log("h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m2, 8), true);
 
-			tmp_A.push_back(hash);
-			B_in_jump.push_back(std::make_pair(arr_to_string(h1, n), arr_to_string(collision.second, MESSAGE_LEN)));
-			B_in_jump.push_back(std::make_pair(arr_to_string(h2, n), arr_to_string(m, 8)));
-
-			log("h1: " + arr_to_hexstring(collision.first, n) + ", m1: " + arr_to_hexstring(collision.second, 8), true);
-			log("h2: " + arr_to_hexstring(h2, n) + ", m2: " + arr_to_hexstring(m, 8), true);
-
-			delete[] h2;
-			A.clear();
-			delete[] A1.at(0);
-			A1.clear();
-
-			break;
-		}
-		catch(std::out_of_range ex) {
-			continue;
-		}
+		delete[] h1;
+		delete[] h2;
+		A1.clear();
+		A2.clear();
+		A.clear();
 	}
 }
 
@@ -459,19 +377,6 @@ void create_result_and_log_files(const std::vector<std::vector<std::pair<std::st
 	log_file.close();
 }
 
-std::string arr_to_hexstring(const uint8_t* arr, const size_t len)
-{
-	std::stringstream ss;
-	ss << std::hex;
-
-	for (int i = 0; i < len; i++)
-	{
-		ss << std::setw(2) << std::setfill('0') << (int)arr[i];
-	}
-
-	return ss.str();
-}
-
 void log(const std::string message, const bool to_log_file)
 {
 	std::cout << message << "\n";
@@ -487,4 +392,11 @@ void log_and_count_time_of_exec(const std::chrono::high_resolution_clock::time_p
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 	log("Set " + set_name + " of cardinality " + std::to_string(set_size) +
 		" generated in " + std::to_string(duration.count()) + " microseconds", true);
+}
+
+void log_and_count_time_of_collision_searching(const std::chrono::high_resolution_clock::time_point start)
+{
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	log("Collision found in " + std::to_string(duration.count()) + " microseconds", true);
 }
