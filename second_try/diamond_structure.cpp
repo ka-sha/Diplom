@@ -65,21 +65,12 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 		return;
 	}
 
-	// ����������� ��������� �����(�������� 2 ^ d).���������� ����� ������
 	std::vector<uint8_t*> A;
-	// ��������� A �� ��������� ����. ���������� ����� ������
 	std::vector<uint8_t*> tmp_A;
-	// ��������� ������ �������� ���������� ��������. ������ ������ - ��� �������� � ������, ������ � ������� - ���� (h, x), ���������� ��������.
-	// �������� ������� ������ � ��������� � ��������� 0 � 1, 2 � 3, 4 � 5 ... ����� �������� ��������
 	std::vector<std::vector<std::pair<std::string, std::string>>> B;
-	// ������������ ��������� ���������, ����� ������� ������ ��������. ���������� ����� ������
 	std::vector<uint8_t*> M;
-	// ��������� ����������� ������ ������� ������ �� ����� ������ �� A � �� ����� ����������� �� M,
-	// ���: key - ��� ��������� ������� ������ ����������� � ������, value - ���� (h,x), � ������� ��������� ������� ������ � �������� key
 	HContainer hcontainer(n, MESSAGE_LEN);
-	// ���������� M, �� �� ������������ � M. ���������� ������
 	std::vector<uint8_t*> M1;
-	// ���� (h, x), ���������� ��������, � �������� ������ ������
 	std::vector<std::pair<std::string, std::string>> B_in_jump;
 
 	const unsigned long init_hash_count = (unsigned long)pow(2, d);
@@ -263,8 +254,8 @@ void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 		auto start = std::chrono::high_resolution_clock::now();
 		generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), MESSAGE_LEN, false);
 		log_and_count_time_of_exec(start, "M", M.size());
-		process_last_two_hashes(A, M, hcontainer, B_in_jump, tmp_A, hf, N, MESSAGE_LEN); // ����� ����������, ��� ���������� ��������, A - ������,
-																		   // � B_in_jump ����������� ��������� �������� � ������
+		process_last_two_hashes(A, M, hcontainer, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
+
 		if (A.size())
 		{
 			clear_vec(M);
