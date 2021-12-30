@@ -167,9 +167,6 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 		log(" phase: 1", true);
 		process_last_two_hashes_in_jump(A, M, hcontainer, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
 
-		clear_vec(M);
-		hcontainer.clear();
-
 		B.push_back(B_in_jump);
 		B_in_jump.clear();
 		for (auto& h : tmp_A)
@@ -185,7 +182,6 @@ void diamond_structure(const int d, HashFunctionMora& hf)
 	B.push_back(B_in_jump);
 	create_result_and_log_files(B);
 
-	clear_vec(M);
 	clear_vec(tmp_A);
 }
 
@@ -255,12 +251,8 @@ void process_last_two_hashes_in_jump(std::vector<uint8_t*>& A,
 		generate_blocks(M, M.size(), (size_t)pow(2, (8 * n) / 2), MESSAGE_LEN, false);
 		log_and_count_time_of_exec(start, "M", M.size());
 		process_last_two_hashes(A, M, hcontainer, B_in_jump, tmp_A, hf, N, MESSAGE_LEN);
-
-		if (A.size())
-		{
-			clear_vec(M);
-			hcontainer.clear();
-		}
+		hcontainer.clear();
+		clear_vec(M);
 	}
 }
 
