@@ -4,16 +4,16 @@ HContainer::HContainer(const int hash_len, const int message_len)
 {
 	this->n = hash_len;
 	this->m_len = message_len;
-	this->A_bound_with_H = new std::vector<uint8_t*>;
-	this->M_bound_with_H = new std::vector<uint8_t*>;
-	this->H = new std::vector<uint8_t*>;
+	this->A_bound_with_H = nullptr;
+	this->M_bound_with_H = nullptr;
+	this->H = nullptr;
 }
 
 HContainer::~HContainer()
 {
-	this->A_bound_with_H = nullptr;
-	this->M_bound_with_H = nullptr;
-	this->H = nullptr;
+	delete this->A_bound_with_H;
+	delete this->M_bound_with_H;
+	delete this->H;
 }
 
 void HContainer::calculate_H(const std::vector<uint8_t*>& A, const std::vector<uint8_t*>& M, HashFunctionMora& hf, const uint8_t* N)
@@ -161,6 +161,10 @@ void HContainer::clear()
 	this->A_bound_with_H->clear();
 	this->M_bound_with_H->clear();
 	clear_vec(*this->H);
+
+	delete this->A_bound_with_H;
+	delete this->M_bound_with_H;
+	delete this->H;
 }
 
 size_t HContainer::size()
